@@ -1,0 +1,202 @@
+// Package git provides wrappers for git operations.
+package git
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"strings"
+)
+
+// Sync ensures the repository at the given URL is present and up-to-date at the given path.
+// It uses the SSH URL by default unless useHTTP is true.
+func Sync(url, path string, useHTTP bool) error {
+	if useHTTP {
+		url = ToHTTP(url)
+	} else {
+		url = ToSSH(url)
+	}
+
+	if info, err := os.Stat(path); err == nil {
+		if !info.IsDir() {
+			return fmt.Errorf("path %s exists but is not a directory", path)
+		}
+		// Check if it is a git repo
+		if _, err := os.Stat(fmt.Sprintf("%s/.git", path)); err != nil {
+			return fmt.Errorf("path %s exists but is not a git repository", path)
+		}
+		return Pull(path)
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+
+	return Clone(url, path, useHTTP)
+}
+
+// Clone clones a repository.
+// It uses the SSH URL by default unless useHTTP is true.
+func Clone(url, path string, useHTTP bool) error {
+	if useHTTP {
+		url = ToHTTP(url)
+	} else {
+		url = ToSSH(url)
+	}
+
+	if err := validateURL(url); err != nil {
+		return err
+	}
+	cmd := exec.Command("git", "clone", url, path)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git clone failed: %w (output: %s)", err, strings.TrimSpace(string(output)))
+	}
+	return nil
+}
+
+// ToSSH converts an HTTP/HTTPS git URL to an SSH git URL.
+// If the URL is already an SSH URL or not an HTTP URL, it is returned unchanged.
+func ToSSH(url string) string {
+	if strings.HasPrefix(url, "https://") || strings.HasPrefix(url, "http://") {
+		// Remove protocol
+		u := url
+		if strings.HasPrefix(u, "https://") {
+			u = u[8:]
+		} else {
+			u = u[7:]
+		}
+
+		u = strings.TrimSuffix(u, "/")
+
+		// Split host and path
+		parts := strings.SplitN(u, "/", 2)
+		if len(parts) == 2 {
+			host := parts[0]
+			repoPath := parts[1]
+			if !strings.HasSuffix(repoPath, ".git") {
+				repoPath += ".git"
+			}
+			return fmt.Sprintf("git@%s:%s", host, repoPath)
+		}
+	}
+	return url
+}
+
+// ToHTTP converts an SSH git URL to an HTTPS git URL.
+// If the URL is already an HTTPS URL or not an SSH URL, it is returned unchanged.
+func ToHTTP(url string) string {
+	if strings.HasPrefix(url, "git@") {
+		u := strings.TrimSuffix(url[4:], ".git")
+		u = strings.TrimSuffix(u, "/")
+		parts := strings.SplitN(u, ":", 2)
+		if len(parts) == 2 {
+			host := parts[0]
+			repoPath := parts[1]
+			return fmt.Sprintf("https://%s/%s", host, repoPath)
+		}
+	} else if strings.HasPrefix(url, "ssh://git@") {
+		u := strings.TrimSuffix(url[10:], ".git")
+		u = strings.TrimSuffix(u, "/")
+		return "https://" + u
+	}
+	return url
+}
+
+// ExtractRepoName extracts the repository name from a git URL.
+func ExtractRepoName(url string) string {
+	u := strings.TrimSuffix(url, "/")
+	u = strings.TrimSuffix(u, ".git")
+
+	// Split by '/' and take the last part
+	parts := strings.Split(u, "/")
+	if len(parts) > 0 {
+		last := parts[len(parts)-1]
+		// Handle git@github.com:repo.git (no slash between host and repo)
+		if strings.Contains(last, ":") {
+			subParts := strings.Split(last, ":")
+			return subParts[len(subParts)-1]
+		}
+		return last
+	}
+	return ""
+}
+
+// Pull pulls changes in an existing repository.
+func Pull(path string) error {
+	cmd := exec.Command("git", "-C", path, "pull")
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git pull failed: %w (output: %s)", err, strings.TrimSpace(string(output)))
+	}
+	return nil
+}
+
+func validateURL(url string) error {
+	// Basic validation to prevent command injection
+	if strings.Contains(url, " ") || strings.HasPrefix(url, "-") {
+		return fmt.Errorf("invalid git URL: %s", url)
+	}
+	// We could add more robust validation here if needed
+	return nil
+}
+
+// GetStatus returns the current branch and a summary of the status.
+func GetStatus(path string) (branch, summary string, err error) {
+	// Get branch
+	cmd := exec.Command("git", "-C", path, "rev-parse", "--abbrev-ref", "HEAD")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get branch: %w", err)
+	}
+	branch = strings.TrimSpace(string(out))
+
+	// Get status summary
+	cmd = exec.Command("git", "-C", path, "status", "--short")
+	out, err = cmd.Output()
+	if err != nil {
+		return branch, "", fmt.Errorf("failed to get status: %w", err)
+	}
+
+	if len(out) == 0 {
+		summary = "Clean"
+	} else {
+		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+		summary = fmt.Sprintf("%d files modified", len(lines))
+	}
+
+	return branch, summary, nil
+}
+
+// Fetch fetches from the remote.
+func Fetch(path string) error {
+	cmd := exec.Command("git", "-C", path, "fetch")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("git fetch failed: %w", err)
+	}
+	return nil
+}
+
+// GetSyncState returns whether the local repo is ahead, behind, or even with the remote.
+func GetSyncState(path string) (string, error) {
+	cmd := exec.Command("git", "-C", path, "rev-list", "--left-right", "--count", "HEAD...@{u}")
+	out, err := cmd.Output()
+	if err != nil {
+		return "Unknown", fmt.Errorf("failed to get sync state: %w", err)
+	}
+
+	parts := strings.Fields(string(out))
+	if len(parts) != 2 {
+		return "Unknown", fmt.Errorf("unexpected output from rev-list: %s", string(out))
+	}
+
+	ahead := parts[0]
+	behind := parts[1]
+
+	if ahead == "0" && behind == "0" {
+		return "Synced", nil
+	}
+	if ahead != "0" && behind != "0" {
+		return fmt.Sprintf("Diverged (+%s, -%s)", ahead, behind), nil
+	}
+	if ahead != "0" {
+		return fmt.Sprintf("Ahead (+%s)", ahead), nil
+	}
+	return fmt.Sprintf("Behind (-%s)", behind), nil
+}
