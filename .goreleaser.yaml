@@ -10,6 +10,7 @@ builds:
   - env:
       - CGO_ENABLED=0
     main: .
+    ldflags: "-s -w -X github.com/liffiton/repoman/cmd.version={{.Version}}"
     goos:
       - linux
       - darwin
