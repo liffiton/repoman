@@ -16,7 +16,7 @@ const (
 	keyName           = "api_key"
 	configFileName    = "config.json"
 	workspaceFileName = ".repoman.json"
-	defaultBaseURL    = "https://api.repoman.example.com"
+	defaultBaseURL    = "https://crm.unsatisfiable.net"
 )
 
 // WorkspaceConfig holds directory-specific configuration.
