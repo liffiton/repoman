@@ -12,12 +12,9 @@ Repoman uses standard Go toolchain commands for quality assurance.
 
 ### Lint
 - **Run go mod tidy:** `go mod tidy`
-- **Run golangci-lint (recommended):** `golangci-lint run`
 - **Run standard vet tool:** `go vet ./...`
+- **Run golangci-lint (recommended):** `golangci-lint run`
 - **Check formatting:** `gofmt -l .`
-
-### Verification after Edits
-- **Mandatory:** After any code changes, agents MUST run `go mod tidy`, `go vet ./...` (or `golangci-lint run` if available) and then `go build -o repoman .` to ensure no regressions or build failures were introduced.
 
 ### Test
 - **Run all tests:** `go test ./...`
@@ -25,6 +22,9 @@ Repoman uses standard Go toolchain commands for quality assurance.
 - **Run a single test:** `go test -v -run ^TestName$ ./path/to/package`
   - *Example:* `go test -v -run ^TestCloneRepo$ ./internal/git`
 - **Run tests in a specific file:** `go test -v ./path/to/package/file_test.go`
+
+### Verification after Edits
+- **Mandatory:** After any code changes, agents MUST run all linters, all tests, and then `go build -o repoman .` to ensure no regressions or build failures were introduced and to ensure the development/testing binary is up to date.
 
 ---
 

@@ -123,6 +123,10 @@ func ExtractRepoName(url string) string {
 func Pull(path string) error {
 	cmd := exec.Command("git", "-C", path, "pull")
 	if output, err := cmd.CombinedOutput(); err != nil {
+		// Check if it's an empty repository
+		if count, countErr := GetCommitCount(path); countErr == nil && count == 0 {
+			return fmt.Errorf("repository is empty")
+		}
 		return fmt.Errorf("git pull failed: %w (output: %s)", err, strings.TrimSpace(string(output)))
 	}
 	return nil
@@ -139,17 +143,20 @@ func validateURL(url string) error {
 
 // GetStatus returns the current branch and a summary of the status.
 func GetStatus(path string) (branch, summary string, err error) {
-	// Get branch
-	cmd := exec.Command("git", "-C", path, "rev-parse", "--abbrev-ref", "HEAD")
-	out, err := cmd.Output()
+	branch = GetBranch(path)
+
+	// Check if the repository is empty
+	count, err := GetCommitCount(path)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to get branch: %w", err)
+		return branch, "", fmt.Errorf("failed to get commit count: %w", err)
 	}
-	branch = strings.TrimSpace(string(out))
+	if count == 0 {
+		return branch, "Empty repository", nil
+	}
 
 	// Get status summary
-	cmd = exec.Command("git", "-C", path, "status", "--short")
-	out, err = cmd.Output()
+	cmd := exec.Command("git", "-C", path, "status", "--short")
+	out, err := cmd.Output()
 	if err != nil {
 		return branch, "", fmt.Errorf("failed to get status: %w", err)
 	}
@@ -164,6 +171,41 @@ func GetStatus(path string) (branch, summary string, err error) {
 	return branch, summary, nil
 }
 
+// GetCommitCount returns the number of commits in the repository.
+func GetCommitCount(path string) (int, error) {
+	cmd := exec.Command("git", "-C", path, "rev-list", "--all", "--count")
+	out, err := cmd.Output()
+	if err != nil {
+		return 0, err
+	}
+	var count int
+	_, err = fmt.Sscanf(strings.TrimSpace(string(out)), "%d", &count)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse commit count: %w", err)
+	}
+	return count, nil
+}
+
+// GetBranch returns the name of the current branch.
+// It is more robust than 'git rev-parse --abbrev-ref HEAD' as it works on empty repositories.
+func GetBranch(path string) string {
+	// Try symbolic-ref first (works on empty repos)
+	cmd := exec.Command("git", "-C", path, "symbolic-ref", "--short", "HEAD")
+	out, err := cmd.Output()
+	if err == nil {
+		return strings.TrimSpace(string(out))
+	}
+
+	// Fallback to rev-parse for detached HEAD
+	cmd = exec.Command("git", "-C", path, "rev-parse", "--abbrev-ref", "HEAD")
+	out, err = cmd.Output()
+	if err == nil {
+		return strings.TrimSpace(string(out))
+	}
+
+	return "Unknown"
+}
+
 // Fetch fetches from the remote.
 func Fetch(path string) error {
 	cmd := exec.Command("git", "-C", path, "fetch")
@@ -175,6 +217,15 @@ func Fetch(path string) error {
 
 // GetSyncState returns whether the local repo is ahead, behind, or even with the remote.
 func GetSyncState(path string) (string, error) {
+	// If the repository is empty, sync state doesn't really apply in the same way
+	count, err := GetCommitCount(path)
+	if err != nil {
+		return "Unknown", err
+	}
+	if count == 0 {
+		return "-", nil
+	}
+
 	cmd := exec.Command("git", "-C", path, "rev-list", "--left-right", "--count", "HEAD...@{u}")
 	out, err := cmd.Output()
 	if err != nil {
