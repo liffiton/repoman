@@ -36,7 +36,7 @@ var initCmd = &cobra.Command{
 		var courseOptions []string
 		courseMap := make(map[string]api.Course)
 		for _, c := range courses {
-			option := fmt.Sprintf("%s", c.Name)
+			option := c.Name
 			courseOptions = append(courseOptions, option)
 			courseMap[option] = c
 		}
@@ -64,7 +64,7 @@ var initCmd = &cobra.Command{
 		var assignmentOptions []string
 		assignmentMap := make(map[string]api.Assignment)
 		for _, a := range assignments {
-			option := fmt.Sprintf("%s", a.Name)
+			option := a.Name
 			assignmentOptions = append(assignmentOptions, option)
 			assignmentMap[option] = a
 		}
