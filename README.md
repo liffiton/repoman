@@ -1,10 +1,13 @@
 # Repoman
 
-Repoman is a Go-based CLI tool designed for instructors to manage student repositories. It interacts with a web application to provision, clone, and track repositories for specific courses and assignments.
+Repoman is a CLI tool designed for instructors to manage student repositories. It interacts with a web application to provision, clone, and track repositories for specific courses and assignments.
+
+> [!IMPORTANT]
+> **Disclosure and warning:** This program is 100% vibe-coded. It may be full of subtle bugs and jank.
 
 ## Features
 
-- **Workspace-Based Workflow**: Link a directory to a specific Course/Assignment via `.repoman.json`.
+- **Workspace-Based Workflow**: Link any directory to a specific Course/Assignment using `repoman init`.
 - **Interactive TUI**: Exploratory initialization with interactive menus to select courses and assignments.
 - **Combined Dashboard**: A unified `status` view showing server-side repo lists alongside local Git status (branch, modified files, ahead/behind).
 - **Secure Configuration**: Stores API keys using the system keyring (via `go-keyring`) with a secure file fallback.
@@ -16,6 +19,11 @@ Repoman is a Go-based CLI tool designed for instructors to manage student reposi
 ### Pre-built Binaries
 
 You can download the latest pre-built binary for your operating system from the [GitHub Releases](https://github.com/liffiton/repoman/releases) page. Download the file for your platform (e.g., `repoman-linux-amd64` or `repoman-windows-amd64.exe`), rename it to `repoman` (or `repoman.exe`), and place it in your system's PATH.
+
+On Mac and Linux, you can automate this using the install script:
+```bash
+curl -sSL https://raw.githubusercontent.com/liffiton/repoman/main/install.sh | bash
+```
 
 ### From Source
 
