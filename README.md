@@ -53,7 +53,7 @@ repoman init
 *Follow the interactive prompts to select your Course and Assignment.*
 
 ### 3. Sync Repositories
-Clone or update all student repositories for the current assignment:
+Clone or update all student repositories for the current workspace/assignment:
 
 ```bash
 repoman sync

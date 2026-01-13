@@ -4,7 +4,7 @@ This document provides instructions for developers who want to contribute to Rep
 
 ## Prerequisites
 
-- **Go**: Version 1.24 or later.
+- **Go**: Version 1.21 or later.
 - **Git**: Required for cloning the repository and for Repoman's core functionality.
 - **golangci-lint**: Recommended for local linting.
 
@@ -26,13 +26,13 @@ This document provides instructions for developers who want to contribute to Rep
 ### Local Build
 To build the binary in the current directory:
 ```bash
-go build -o repoman .
+go build
 ```
 
 ### Install to GOBIN
 To install the binary to your `$GOPATH/bin` (or `$HOME/go/bin`):
 ```bash
-go install .
+go install
 ```
 
 ## Testing
