@@ -51,7 +51,7 @@ echo "Successfully installed ${BINARY_NAME} to ${INSTALL_DIR}"
 if [[ ":$PATH:" != *":${INSTALL_DIR}:"* ]]; then
   echo ""
   echo "Warning: ${INSTALL_DIR} is not in your PATH."
-  echo "To use ${BINARY_NAME} from anywhere, add it to your shell profile:"
+  echo "To use ${BINARY_NAME} from anywhere, add it to your shell profile by running:"
   
   # Identify shell profile
   SHELL_TYPE=$(basename "$SHELL")
@@ -69,9 +69,9 @@ if [[ ":$PATH:" != *":${INSTALL_DIR}:"* ]]; then
   fi
 
   if [ -n "$PROFILE_FILE" ]; then
-    echo "  echo 'export PATH=\"\$PATH:${INSTALL_DIR}\"' >> ${PRINT_PROFILE}"
-    echo "  source ${PRINT_PROFILE}"
+    echo "  $ echo 'export PATH=\"\$PATH:${INSTALL_DIR}\"' >> ${PRINT_PROFILE}"
+    echo "  $ source ${PRINT_PROFILE}"
   else
-    echo "  export PATH=\"\$PATH:${INSTALL_DIR}\""
+    echo "  $ export PATH=\"\$PATH:${INSTALL_DIR}\""
   fi
 fi

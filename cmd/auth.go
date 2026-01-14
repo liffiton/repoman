@@ -17,17 +17,19 @@ var authCmd = &cobra.Command{
 	Short: "Configure authentication for the Repoman service",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var apiKey string
+		fmt.Print("Your API key can be found in the Settings page of the Class Repo Manager web application.\n")
 		fmt.Print("Enter API Key: ")
 		if _, err := fmt.Scanln(&apiKey); err != nil && err.Error() != "unexpected newline" {
 			return fmt.Errorf("failed to read API key: %w", err)
 		}
+		apiKey = strings.TrimSpace(apiKey)
 
 		if apiKey == "" {
 			return fmt.Errorf("API key cannot be empty")
 		}
 
 		var baseURL string
-		fmt.Printf("Enter Base URL [%s]: ", cfg.GetBaseURL())
+		fmt.Printf("Enter Base URL (default, if nothing entered: [%s]): ", cfg.GetBaseURL())
 		if _, err := fmt.Scanln(&baseURL); err != nil && err.Error() != "unexpected newline" {
 			return fmt.Errorf("failed to read Base URL: %w", err)
 		}
