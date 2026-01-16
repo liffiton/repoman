@@ -16,6 +16,7 @@ var (
 var rootCmd = &cobra.Command{
 	Use:     "repoman",
 	Short:   "Repoman is a CLI tool to manage Git repositories",
+	SilenceUsage: true,  // don't print usage for execution errors
 	Version: version,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		var err error
@@ -31,7 +32,6 @@ var rootCmd = &cobra.Command{
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
 		os.Exit(1)
 	}
 }
