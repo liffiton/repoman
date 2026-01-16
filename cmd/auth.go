@@ -1,4 +1,4 @@
- // Package cmd provides the repoman CLI commands.
+// Package cmd provides the repoman CLI commands.
 package cmd
 
 import (

@@ -2,19 +2,19 @@
 
 This document provides essential information for AI agents and developers working on the Repoman project. Repoman is a Go-based CLI tool designed to manage Git repositories by interfacing with a web application.
 
-## 1. Build, Lint, and Test Commands
+## 1. Format, Lint, Test, and Build Commands
 
 Repoman uses standard Go toolchain commands for quality assurance.
 
-### Build
-- **Build the binary:** `go build -o repoman .`
-- **Install locally:** `go install .`
+### Format
+- `gofmt -w .` (standard Go formatting).
+- `goimports -w .` to manage imports and ensure they are grouped.
 
 ### Lint
-- **Run go mod tidy:** `go mod tidy`
-- **Run standard vet tool:** `go vet ./...`
-- **Run golangci-lint (recommended):** `golangci-lint run`
-- **Check formatting:** `gofmt -l .`
+- `go mod tidy`
+- `go vet ./...`
+- `golangci-lint run`
+- `gofmt -l .`
 
 ### Test
 - **Run all tests:** `go test ./...`
@@ -23,16 +23,19 @@ Repoman uses standard Go toolchain commands for quality assurance.
   - *Example:* `go test -v -run ^TestCloneRepo$ ./internal/git`
 - **Run tests in a specific file:** `go test -v ./path/to/package/file_test.go`
 
+### Build
+- **Build the binary:** `go build`
+
 ### Verification after Edits
-- **Mandatory:** After any code changes, agents MUST run all linters, all tests, and then `go build -o repoman .` to ensure no regressions or build failures were introduced and to ensure the development/testing binary is up to date.
+**Mandatory:** After any code changes, agents MUST:
+  1. run all formatters,
+  2. run all linters,
+  3. run all tests, and
+  4. run `go build` to ensure no regressions or build failures were introduced and to ensure the development/testing binary is up to date.
 
 ---
 
 ## 2. Code Style Guidelines
-
-### Formatting
-- Use `gofmt` (standard Go formatting).
-- Use `goimports` to manage imports and ensure they are grouped: standard library first, then 3rd party, then local modules.
 
 ### Naming Conventions
 - **Packages:** Short, lowercase, single-word names (e.g., `git`, `config`, `api`).

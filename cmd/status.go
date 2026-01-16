@@ -1,4 +1,4 @@
- // Package cmd provides the entry point for the repoman CLI.
+// Package cmd provides the entry point for the repoman CLI.
 package cmd
 
 import (
