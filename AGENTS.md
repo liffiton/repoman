@@ -14,7 +14,6 @@ Repoman uses standard Go toolchain commands for quality assurance.
 - `go mod tidy`
 - `go vet ./...`
 - `golangci-lint run`
-- `gofmt -l .`
 
 ### Test
 - **Run all tests:** `go test ./...`
