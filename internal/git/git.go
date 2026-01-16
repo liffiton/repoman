@@ -8,6 +8,31 @@ import (
 	"strings"
 )
 
+// Run a git command with the given arguments passed to the git CLI command.
+// Strictly checks SSH host keys, failing without a prompt if they are missing
+// or don't match.
+func runGitCommand(args ...string) ([]byte, error) {
+	return runGitCommandAcceptNewHosts(false, args...)
+}
+
+// Run a git command with the given arguments passed to the git CLI command.
+// Allows accepting new host keys without a prompt (if acceptNewHosts=true).
+// Otherwise, strictly checks SSH host keys, failing without a prompt if they
+// are missing or don't match.
+func runGitCommandAcceptNewHosts(acceptNewHosts bool, args ...string) ([]byte, error) {
+	cmd := exec.Command("git", args...)
+
+	strictHostKeyChecking := "yes"
+	if acceptNewHosts {
+		strictHostKeyChecking = "accept-new"
+	}
+
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("GIT_SSH_COMMAND=ssh -o StrictHostKeyChecking=%s", strictHostKeyChecking))
+
+	return cmd.CombinedOutput()
+}
+
 // Sync ensures the repository at the given URL is present and up-to-date at the given path.
 // It uses the SSH URL by default unless useHTTP is true.
 func Sync(url, path string, useHTTP bool) error {
@@ -45,8 +70,11 @@ func Clone(url, path string, useHTTP bool) error {
 	if err := validateURL(url); err != nil {
 		return err
 	}
-	cmd := exec.Command("git", "clone", url, path)
-	if output, err := cmd.CombinedOutput(); err != nil {
+
+	// Accept a new host key (only here on clone) to streamline if using this tool
+	// is the first time the user has connected to the Git/SSH host.
+	output, err := runGitCommandAcceptNewHosts(true, "clone", url, path)
+	if err != nil {
 		return fmt.Errorf("git clone failed: %w (output: %s)", err, strings.TrimSpace(string(output)))
 	}
 	return nil
@@ -121,8 +149,8 @@ func ExtractRepoName(url string) string {
 
 // Pull pulls changes in an existing repository.
 func Pull(path string) error {
-	cmd := exec.Command("git", "-C", path, "pull")
-	if output, err := cmd.CombinedOutput(); err != nil {
+	output, err := runGitCommand("-C", path, "pull")
+	if err != nil {
 		// Check if it's an empty repository
 		if count, countErr := GetCommitCount(path); countErr == nil && count == 0 {
 			return fmt.Errorf("repository is empty")
@@ -155,8 +183,7 @@ func GetStatus(path string) (branch, summary string, err error) {
 	}
 
 	// Get status summary
-	cmd := exec.Command("git", "-C", path, "status", "--short")
-	out, err := cmd.Output()
+	out, err := runGitCommand("-C", path, "status", "--short")
 	if err != nil {
 		return branch, "", fmt.Errorf("failed to get status: %w", err)
 	}
@@ -173,8 +200,7 @@ func GetStatus(path string) (branch, summary string, err error) {
 
 // GetCommitCount returns the number of commits in the repository.
 func GetCommitCount(path string) (int, error) {
-	cmd := exec.Command("git", "-C", path, "rev-list", "--all", "--count")
-	out, err := cmd.Output()
+	out, err := runGitCommand("-C", path, "rev-list", "--all", "--count")
 	if err != nil {
 		return 0, err
 	}
@@ -190,15 +216,13 @@ func GetCommitCount(path string) (int, error) {
 // It is more robust than 'git rev-parse --abbrev-ref HEAD' as it works on empty repositories.
 func GetBranch(path string) string {
 	// Try symbolic-ref first (works on empty repos)
-	cmd := exec.Command("git", "-C", path, "symbolic-ref", "--short", "HEAD")
-	out, err := cmd.Output()
+	out, err := runGitCommand("-C", path, "symbolic-ref", "--short", "HEAD")
 	if err == nil {
 		return strings.TrimSpace(string(out))
 	}
 
 	// Fallback to rev-parse for detached HEAD
-	cmd = exec.Command("git", "-C", path, "rev-parse", "--abbrev-ref", "HEAD")
-	out, err = cmd.Output()
+	out, err = runGitCommand("-C", path, "rev-parse", "--abbrev-ref", "HEAD")
 	if err == nil {
 		return strings.TrimSpace(string(out))
 	}
@@ -208,8 +232,8 @@ func GetBranch(path string) string {
 
 // Fetch fetches from the remote.
 func Fetch(path string) error {
-	cmd := exec.Command("git", "-C", path, "fetch")
-	if err := cmd.Run(); err != nil {
+	_, err := runGitCommand("-C", path, "fetch")
+	if err != nil {
 		return fmt.Errorf("git fetch failed: %w", err)
 	}
 	return nil
@@ -226,8 +250,7 @@ func GetSyncState(path string) (string, error) {
 		return "-", nil
 	}
 
-	cmd := exec.Command("git", "-C", path, "rev-list", "--left-right", "--count", "HEAD...@{u}")
-	out, err := cmd.Output()
+	out, err := runGitCommand("-C", path, "rev-list", "--left-right", "--count", "HEAD...@{u}")
 	if err != nil {
 		return "Unknown", fmt.Errorf("failed to get sync state: %w", err)
 	}
