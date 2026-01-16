@@ -19,7 +19,7 @@ var rootCmd = &cobra.Command{
 	Version: version,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		var err error
-		cmd.SilenceUsage = true  // don't print usage for execution errors
+		cmd.SilenceUsage = true // don't print usage for execution errors
 		cfg, err = config.Load()
 		if err != nil {
 			return fmt.Errorf("failed to load config: %w", err)

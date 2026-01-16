@@ -6,6 +6,7 @@ import (
 	"os"
 	"sync"
 	"text/tabwriter"
+	"time"
 
 	"github.com/liffiton/repoman/internal/api"
 	"github.com/liffiton/repoman/internal/config"
@@ -45,7 +46,7 @@ var statusCmd = &cobra.Command{
 		bar := progressbar.Default(int64(len(repos)), "Checking status")
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-		_, _ = fmt.Fprintln(w, "STUDENT/REPO\tBRANCH\tLOCAL STATUS\tSYNC STATE")
+		_, _ = fmt.Fprintln(w, "STUDENT/REPO\tBRANCH\tLAST COMMIT\tLOCAL STATUS\tSYNC STATE")
 
 		var wg sync.WaitGroup
 		results := make([]string, len(repos))
@@ -61,7 +62,7 @@ var statusCmd = &cobra.Command{
 
 				localPath := r.Name
 				if _, err := os.Stat(localPath); os.IsNotExist(err) {
-					results[i] = fmt.Sprintf("%s\t-\tMissing\t-", r.Name)
+					results[i] = fmt.Sprintf("%s\t-\t-\tMissing\t-", r.Name)
 					_ = bar.Add(1)
 					return
 				}
@@ -72,13 +73,14 @@ var statusCmd = &cobra.Command{
 
 				branch, status, err := git.GetStatus(localPath)
 				if err != nil {
-					results[i] = fmt.Sprintf("%s\tERROR\t%v\t-", r.Name, err)
+					results[i] = fmt.Sprintf("%s\tERROR\t-\t%v\t-", r.Name, err)
 					_ = bar.Add(1)
 					return
 				}
 
 				syncState, _ := git.GetSyncState(localPath)
-				results[i] = fmt.Sprintf("%s\t%s\t%s\t%s", r.Name, branch, status, syncState)
+				lastCommit, _ := git.GetLastCommitTime(localPath)
+				results[i] = fmt.Sprintf("%s\t%s\t%s\t%s\t%s", r.Name, branch, formatCommitTime(lastCommit), status, syncState)
 				_ = bar.Add(1)
 			}(i, repo)
 		}
@@ -93,4 +95,23 @@ var statusCmd = &cobra.Command{
 
 		return nil
 	},
+}
+
+func formatCommitTime(t time.Time) string {
+	if t.IsZero() {
+		return "-"
+	}
+	local := t.Local()
+	now := time.Now().Local()
+
+	dateStr := ""
+	if local.Year() == now.Year() && local.YearDay() == now.YearDay() {
+		dateStr = "today     "
+	} else if yesterday := now.AddDate(0, 0, -1); local.Year() == yesterday.Year() && local.YearDay() == yesterday.YearDay() {
+		dateStr = "yesterday "
+	} else {
+		dateStr = local.Format("2006-01-02")
+	}
+
+	return fmt.Sprintf("%s %s", dateStr, local.Format("15:04"))
 }

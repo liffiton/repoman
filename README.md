@@ -71,15 +71,15 @@ Status for CS101 - Lab 1
 
 Checking status 100% |█████████████████████████████████████████████████| (8/8, 11 it/s)        
 
-STUDENT/REPO       BRANCH   LOCAL STATUS   SYNC STATE
-Amara              main     Clean          Synced
-Dmitri             main     Clean          Synced
-Kenji              main     Clean          Synced
-Lucia              main     Clean          Synced
-Priya              main     Clean          Synced
-Rafael             main     Clean          Synced
-Soren              main     Clean          Synced
-Yasmin             main     Clean          Synced
+STUDENT/REPO       BRANCH   LAST COMMIT       LOCAL STATUS   SYNC STATE
+Amara              main     today      14:30  Clean          Synced
+Dmitri             main     yesterday  09:15  Clean          Synced
+Kenji              main     2026-01-14 16:45  Clean          Synced
+Lucia              main     2026-01-12 11:20  Clean          Synced
+Priya              main     today      10:05  Clean          Synced
+Rafael             main     yesterday  22:10  Clean          Synced
+Soren              main     yesterday  13:55  Clean          Synced
+Yasmin             main     today      08:42  Clean          Synced
 ```
 
 ### 5. Self-Update

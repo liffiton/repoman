@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
+	"time"
 )
 
 // Run a git command with the given arguments passed to the git CLI command.
@@ -179,7 +181,7 @@ func GetStatus(path string) (branch, summary string, err error) {
 		return branch, "", fmt.Errorf("failed to get commit count: %w", err)
 	}
 	if count == 0 {
-		return branch, "Empty repository", nil
+		return branch, "Empty repo.", nil
 	}
 
 	// Get status summary
@@ -273,4 +275,21 @@ func GetSyncState(path string) (string, error) {
 		return fmt.Sprintf("Ahead (+%s)", ahead), nil
 	}
 	return fmt.Sprintf("Behind (-%s)", behind), nil
+}
+
+// GetLastCommitTime returns the time of the most recent commit in the repository (across all branches).
+func GetLastCommitTime(path string) (time.Time, error) {
+	out, err := runGitCommand("-C", path, "log", "-1", "--format=%at", "--all")
+	if err != nil {
+		return time.Time{}, err
+	}
+	s := strings.TrimSpace(string(out))
+	if s == "" {
+		return time.Time{}, fmt.Errorf("no commits found")
+	}
+	sec, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("failed to parse commit time: %w", err)
+	}
+	return time.Unix(sec, 0), nil
 }

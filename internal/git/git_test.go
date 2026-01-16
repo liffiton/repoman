@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestSync(t *testing.T) {
@@ -139,5 +140,54 @@ func TestExtractRepoName(t *testing.T) {
 		if got := ExtractRepoName(tt.url); got != tt.want {
 			t.Errorf("ExtractRepoName(%q) = %q, want %q", tt.url, got, tt.want)
 		}
+	}
+}
+
+func TestGetLastCommitTime(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "repoman-git-lastcommit-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	repoPath := filepath.Join(tmpDir, "repo")
+	if err := os.MkdirAll(repoPath, 0o750); err != nil {
+		t.Fatalf("failed to create repo dir: %v", err)
+	}
+
+	runGit := func(args ...string) {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = repoPath
+		if output, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git command failed: %v (output: %s)", err, string(output))
+		}
+	}
+
+	runGit("init", "-b", "main")
+	runGit("config", "user.email", "test@example.com")
+	runGit("config", "user.name", "Test User")
+
+	// Test empty repo
+	_, err = GetLastCommitTime(repoPath)
+	if err == nil {
+		t.Error("expected error for empty repository, got nil")
+	}
+
+	// Create a commit
+	if err := os.WriteFile(filepath.Join(repoPath, "test.txt"), []byte("hello"), 0o600); err != nil {
+		t.Fatalf("failed to write file: %v", err)
+	}
+	runGit("add", "test.txt")
+
+	now := time.Now().Unix()
+	runGit("commit", "-m", "initial commit")
+
+	commitTime, err := GetLastCommitTime(repoPath)
+	if err != nil {
+		t.Fatalf("GetLastCommitTime failed: %v", err)
+	}
+
+	if commitTime.Unix() < now {
+		t.Errorf("expected commit time to be at least %d, got %d", now, commitTime.Unix())
 	}
 }
