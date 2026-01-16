@@ -40,7 +40,7 @@ var statusCmd = &cobra.Command{
 			return fmt.Errorf("failed to fetch repositories: %w", err)
 		}
 
-		fmt.Printf("Status for %s - %s\n\n", wcfg.CourseID, wcfg.AssignmentName)
+		fmt.Printf("Status for %s - %s\n\n", wcfg.CourseName, wcfg.AssignmentName)
 
 		bar := progressbar.Default(int64(len(repos)), "Checking status")
 

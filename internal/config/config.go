@@ -22,6 +22,7 @@ const (
 // WorkspaceConfig holds directory-specific configuration.
 type WorkspaceConfig struct {
 	CourseID       string `json:"course_id"`
+	CourseName     string `json:"course_name"`
 	AssignmentID   string `json:"assignment_id"`
 	AssignmentName string `json:"assignment_name"`
 }

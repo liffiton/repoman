@@ -82,6 +82,7 @@ var initCmd = &cobra.Command{
 		// 3. Save Workspace Config
 		wcfg := &config.WorkspaceConfig{
 			CourseID:       selectedCourse.ID,
+			CourseName:     selectedCourse.Name,
 			AssignmentID:   selectedAssignment.ID,
 			AssignmentName: selectedAssignment.Name,
 		}
