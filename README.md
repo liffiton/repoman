@@ -25,34 +25,61 @@ curl -sSL https://raw.githubusercontent.com/liffiton/repoman/main/install.sh | b
 
 ## Usage
 
-### 1. Authenticate
-Set your API key (found in the **Settings** page of the web application) and server URL:
+### 1. Authenticate & Configure
 
 ```bash
-repoman auth
+~ $ repoman auth
+Your API key can be found in the Settings page of the Class Repo Manager web application.
+Enter API Key: my-api-key
+Enter Base URL (default, if nothing entered: [https://crm.unsatisfiable.net]): 
+
+Authentication configured successfully!
+API Key: Saved securely in the system keyring.
+Base URL: https://crm.unsatisfiable.net (using default, no config file created)
 ```
 
-### 2. Initialize a Workspace
-Go to the directory in which you want to clone and store student repositories and run:
+### 2. Initialize a Workspace Directory
+
+Go to the directory in which you want to clone and store student repositories.
+Follow the interactive prompts to select a Course and Assignment.
 
 ```bash
-repoman init
-```
+~ $ cd cs101/lab1/
 
-Follow the interactive prompts to select your Course and Assignment.
+~/cs101/lab1 $ repoman init
+? Select a course: CS101
+? Select an assignment: Lab 1
+Workspace initialized for CS101 - Lab 1
+```
 
 ### 3. Sync Repositories
-Clone or update all student repositories for the current workspace/assignment:
+Clone or update all student repositories for the current workspace/assignment.
 
 ```bash
-repoman sync
+~/cs101/lab1 $ repoman sync
+Syncing 8 repositories for Lab 1...
+ 100% |█████████████████████████████████████████████████████████████████| (8/8, 6 it/s)        
+
+Sync complete. 8/8 repositories synced successfully.
 ```
 
 ### 4. Status Dashboard
-View the status of all student repositories (both local and server-side):
 
 ```bash
-repoman status
+~/cs101/lab1 $ repoman status
+Status for CS101 - Lab 1
+
+Checking status 100% |█████████████████████████████████████████████████| (8/8, 11 it/s)        
+
+STUDENT/REPO       BRANCH   LOCAL STATUS   SYNC STATE
+Amara              main     Clean          Synced
+Dmitri             main     Clean          Synced
+Kenji              main     Clean          Synced
+Lucia              main     Clean          Synced
+Priya              main     Clean          Synced
+Rafael             main     Clean          Synced
+Soren              main     Clean          Synced
+Yasmin             main     Clean          Synced
 ```
 
 ### 5. Self-Update
