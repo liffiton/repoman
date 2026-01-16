@@ -94,3 +94,10 @@ Repoman uses standard Go toolchain commands for quality assurance.
 - All exported symbols must have a doc comment.
 - Keep `README.md` updated with usage examples.
 - Use `AGENTS.md` (this file) to record project-specific instructions for AI tools.
+
+## 5. Tips for AI Agents
+
+### Editing and Imports
+- **Prefer `goimports`:** When you need to add or remove imports in Go files, focus on modifying the code itself, then run `goimports -w .`. This is much safer than manually editing the `import` block, which can easily lead to accidentally removing required dependencies.
+- **Block Integrity:** When using the `edit` tool to modify multi-line structures (like `import`, `struct`, or `interface` blocks), include the entire block in your `oldString`. This ensures you have the correct context and prevents accidental truncation of lines in the middle.
+- **Verify Symbols:** If an edit results in "undefined" symbol errors in the LSP or build output, double-check that you didn't accidentally overwrite an import or a variable definition in a neighboring line.
