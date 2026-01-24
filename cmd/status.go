@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/liffiton/repoman/internal/api"
-	"github.com/liffiton/repoman/internal/config"
 	"github.com/liffiton/repoman/internal/git"
 	"github.com/liffiton/repoman/internal/ui"
 	"github.com/pterm/pterm"
@@ -24,35 +23,26 @@ var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show status of all student repositories in the workspace",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if cfg.APIKey == "" {
-			return fmt.Errorf("not authenticated. Run 'repoman auth' first")
-		}
-
-		wcfg, err := config.LoadWorkspace()
+		ctx, err := loadWorkspaceContext()
 		if err != nil {
-			if os.IsNotExist(err) {
-				return fmt.Errorf("no workspace found. Run 'repoman init' first")
-			}
-			return fmt.Errorf("failed to load workspace: %w", err)
+			return err
 		}
 
-		client := api.NewClient(cfg.GetBaseURL(), cfg.APIKey)
-		repos, err := client.GetAssignmentRepos(wcfg.AssignmentID)
-		if err != nil {
-			return fmt.Errorf("failed to fetch repositories: %w", err)
+		ui.PrintHeader("Status for " + pterm.Bold.Sprintf("%s - %s", ctx.Wcfg.CourseName, ctx.Wcfg.AssignmentName))
+		if ctx.OrigDir != ctx.Wcfg.Root {
+			ui.Dim.Printf("Workspace: %s\n", ctx.Wcfg.Root)
 		}
+		pterm.Println()
 
-		ui.PrintHeader("Status for " + pterm.Bold.Sprintf("%s - %s", wcfg.CourseName, wcfg.AssignmentName))
-
-		bar, _ := ui.Progressbar.WithTotal(len(repos)).WithTitle("Checking status").Start()
+		bar, _ := ui.Progressbar.WithTotal(len(ctx.Repos)).WithTitle("Checking status").Start()
 
 		var wg sync.WaitGroup
-		results := make([][]string, len(repos)+1)
+		results := make([][]string, len(ctx.Repos)+1)
 		results[0] = []string{"STUDENT/REPO", "BRANCH", "LAST COMMIT", "LOCAL STATUS", "SYNC STATE"}
 
 		sem := make(chan struct{}, 10) // Concurrency limit for status checks
 
-		for i, repo := range repos {
+		for i, repo := range ctx.Repos {
 			wg.Add(1)
 			go func(i int, r api.Repo) {
 				defer wg.Done()

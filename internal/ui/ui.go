@@ -9,14 +9,14 @@ var (
 	// Success is the style for success messages
 	Success = pterm.NewRGB(80, 180, 40)
 
+	// Warning is the style for warnings
+	Warning = pterm.Warning
+
 	// Error is the style for error messages
 	Error = pterm.Error
 
 	// Info is the style for info messages
 	Info = pterm.NewRGB(80, 180, 200)
-
-	// Normal is the style for plain text
-	Normal = pterm.DefaultBasicText
 
 	// Dim is the style for secondary/dimmed text
 	Dim = pterm.FgGray.ToStyle()
@@ -29,5 +29,5 @@ var (
 func PrintHeader(title string) {
 	RepomanTitle := pterm.NewRGB(60, 140, 250)
 	RepomanTitle.Print("Repoman: ")
-	Normal.Println(title)
+	pterm.Println(title)
 }

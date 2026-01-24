@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/liffiton/repoman/internal/api"
 	"github.com/liffiton/repoman/internal/config"
@@ -19,9 +20,27 @@ var initCmd = &cobra.Command{
 	Short: "Initialize a new Repoman workspace in the current directory",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ui.PrintHeader("Initialize Current Directory")
+		pterm.Println()
 
-		if cfg.APIKey == "" {
-			return fmt.Errorf("not authenticated. Run 'repoman auth' first")
+		if err := requireAuth(); err != nil {
+			return err
+		}
+
+		// Check for existing workspace
+		if root, err := config.FindWorkspaceRoot(); err == nil {
+			curr, _ := os.Getwd()
+			var msg string
+			if root == curr {
+				msg = "Current directory is already a Repoman workspace. Overwrite?"
+			} else {
+				ui.Warning.Printf("Found existing Repoman workspace at %s.\n", pterm.Bold.Sprint(root))
+				msg = "Create a nested workspace here?"
+			}
+
+			result, _ := pterm.DefaultInteractiveConfirm.WithDefaultText(msg).WithDefaultValue(false).Show()
+			if !result {
+				return nil
+			}
 		}
 
 		client := api.NewClient(cfg.GetBaseURL(), cfg.APIKey)

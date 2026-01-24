@@ -17,6 +17,7 @@ var updateCmd = &cobra.Command{
 	Short: "Update repoman to the latest version",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ui.PrintHeader("Checking for updates...")
+		fmt.Println()
 
 		updated, err := update.CheckAndUpdate(version)
 		if err != nil {

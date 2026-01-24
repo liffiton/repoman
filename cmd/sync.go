@@ -2,10 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
-	"github.com/liffiton/repoman/internal/api"
-	"github.com/liffiton/repoman/internal/config"
 	"github.com/liffiton/repoman/internal/git"
 	"github.com/liffiton/repoman/internal/ui"
 	"github.com/pterm/pterm"
@@ -23,36 +20,27 @@ var syncCmd = &cobra.Command{
 	Use:   "sync",
 	Short: "Sync student repositories for the current assignment",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if cfg.APIKey == "" {
-			return fmt.Errorf("not authenticated. Run 'repoman auth' first")
-		}
-
-		wcfg, err := config.LoadWorkspace()
+		ctx, err := loadWorkspaceContext()
 		if err != nil {
-			if os.IsNotExist(err) {
-				return fmt.Errorf("no workspace found. Run 'repoman init' first")
-			}
-			return fmt.Errorf("failed to load workspace: %w", err)
+			return err
 		}
 
-		client := api.NewClient(cfg.GetBaseURL(), cfg.APIKey)
-		repos, err := client.GetAssignmentRepos(wcfg.AssignmentID)
-		if err != nil {
-			return fmt.Errorf("failed to fetch repositories: %w", err)
+		ui.PrintHeader(fmt.Sprintf("Syncing repositories for %s", pterm.Bold.Sprintf("%s - %s", ctx.Wcfg.CourseName, ctx.Wcfg.AssignmentName)))
+		if ctx.OrigDir != ctx.Wcfg.Root {
+			ui.Dim.Printf("Workspace: %s\n", ctx.Wcfg.Root)
 		}
+		pterm.Println()
 
-		if len(repos) == 0 {
+		if len(ctx.Repos) == 0 {
 			fmt.Println("No student repositories found for this assignment.")
 			return nil
 		}
 
-		ui.PrintHeader(fmt.Sprintf("Syncing %d repositories for ", len(repos)) + pterm.Bold.Sprintf("%s - %s", wcfg.CourseName, wcfg.AssignmentName))
-
-		bar, _ := ui.Progressbar.WithTotal(len(repos)).Start()
+		bar, _ := ui.Progressbar.WithTotal(len(ctx.Repos)).Start()
 
 		manager := git.NewManager(5)
 		var gitRepos []git.RepoInfo
-		for _, r := range repos {
+		for _, r := range ctx.Repos {
 			gitRepos = append(gitRepos, git.RepoInfo{
 				URL:     r.URL,
 				Path:    r.Name, // Clone into current directory using the repo name
@@ -69,13 +57,13 @@ var syncCmd = &cobra.Command{
 		successCount := 0
 		for i, err := range errs {
 			if err != nil {
-				ui.Error.Printf("Error syncing %s: %v\n", repos[i].Name, err)
+				ui.Error.Printf("Error syncing %s: %v\n", ctx.Repos[i].Name, err)
 			} else {
 				successCount++
 			}
 		}
 
-		fmt.Println(ui.Success.Sprint("Sync complete. ") + fmt.Sprintf("%d/%d repositories synced successfully.", successCount, len(repos)))
+		fmt.Println(ui.Success.Sprint("Sync complete. ") + fmt.Sprintf("%d/%d repositories synced successfully.", successCount, len(ctx.Repos)))
 
 		return nil
 	},

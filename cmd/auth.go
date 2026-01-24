@@ -19,6 +19,7 @@ var authCmd = &cobra.Command{
 	Short: "Configure authentication for the Repoman service",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ui.PrintHeader("Configure Authentication")
+		pterm.Println()
 
 		var apiKey string
 		ui.Dim.Println("Your API key can be found in the Settings page of the Class Repo Manager web application.")

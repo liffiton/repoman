@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/zalando/go-keyring"
@@ -63,5 +64,44 @@ func TestEnsureConfigDir(t *testing.T) {
 	}
 	if !info.IsDir() {
 		t.Error("EnsureConfigDir path is not a directory")
+	}
+}
+
+func TestFindWorkspaceRoot(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "repoman-workspace-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	// Create a workspace file in the temp dir
+	wsFile := filepath.Join(tmpDir, workspaceFileName)
+	if err := os.WriteFile(wsFile, []byte("{}"), 0o600); err != nil {
+		t.Fatalf("failed to create workspace file: %v", err)
+	}
+
+	// Create a subdirectory
+	subDir := filepath.Join(tmpDir, "sub", "dir")
+	if err := os.MkdirAll(subDir, 0o700); err != nil {
+		t.Fatalf("failed to create subdir: %v", err)
+	}
+
+	// Change to the subdirectory
+	oldWd, _ := os.Getwd()
+	if err := os.Chdir(subDir); err != nil {
+		t.Fatalf("failed to change to subdir: %v", err)
+	}
+	defer func() { _ = os.Chdir(oldWd) }()
+
+	// Find the workspace root
+	root, err := FindWorkspaceRoot()
+	if err != nil {
+		t.Fatalf("FindWorkspaceRoot failed: %v", err)
+	}
+
+	absTmpDir, _ := filepath.Abs(tmpDir)
+	absRoot, _ := filepath.Abs(root)
+	if absRoot != absTmpDir {
+		t.Errorf("expected root %s, got %s", absTmpDir, absRoot)
 	}
 }

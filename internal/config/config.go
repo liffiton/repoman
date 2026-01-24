@@ -25,11 +25,42 @@ type WorkspaceConfig struct {
 	CourseName     string `json:"course_name"`
 	AssignmentID   string `json:"assignment_id"`
 	AssignmentName string `json:"assignment_name"`
+	Root           string `json:"-"`
 }
 
-// LoadWorkspace loads the workspace configuration from the current directory.
+// FindWorkspaceRoot searches for the workspace configuration file starting from the
+// current directory and moving up the directory tree.
+func FindWorkspaceRoot() (string, error) {
+	curr, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+
+	for {
+		if _, err := os.Stat(filepath.Join(curr, workspaceFileName)); err == nil {
+			return curr, nil
+		}
+
+		parent := filepath.Dir(curr)
+		if parent == curr {
+			break
+		}
+		curr = parent
+	}
+
+	return "", os.ErrNotExist
+}
+
+// LoadWorkspace loads the workspace configuration. It searches for the config file
+// starting from the current directory and moving up.
 func LoadWorkspace() (*WorkspaceConfig, error) {
-	data, err := os.ReadFile(workspaceFileName)
+	root, err := FindWorkspaceRoot()
+	if err != nil {
+		return nil, err
+	}
+
+	// #nosec G304
+	data, err := os.ReadFile(filepath.Join(root, workspaceFileName))
 	if err != nil {
 		return nil, err
 	}
@@ -37,6 +68,7 @@ func LoadWorkspace() (*WorkspaceConfig, error) {
 	if err := json.Unmarshal(data, &wcfg); err != nil {
 		return nil, fmt.Errorf("could not unmarshal workspace config: %w", err)
 	}
+	wcfg.Root = root
 	return &wcfg, nil
 }
 
