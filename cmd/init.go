@@ -3,9 +3,10 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/liffiton/repoman/internal/api"
 	"github.com/liffiton/repoman/internal/config"
+	"github.com/liffiton/repoman/internal/ui"
+	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
 
@@ -17,6 +18,8 @@ var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize a new Repoman workspace in the current directory",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		ui.PrintHeader("Initialize Current Directory")
+
 		if cfg.APIKey == "" {
 			return fmt.Errorf("not authenticated. Run 'repoman auth' first")
 		}
@@ -41,12 +44,11 @@ var initCmd = &cobra.Command{
 			courseMap[option] = c
 		}
 
-		var selectedCourseOption string
-		promptCourse := &survey.Select{
-			Message: "Select a course:",
-			Options: courseOptions,
-		}
-		if err := survey.AskOne(promptCourse, &selectedCourseOption); err != nil {
+		selectedCourseOption, err := pterm.DefaultInteractiveSelect.
+			WithDefaultText("Select a course").
+			WithOptions(courseOptions).
+			Show()
+		if err != nil {
 			return err
 		}
 		selectedCourse := courseMap[selectedCourseOption]
@@ -69,12 +71,11 @@ var initCmd = &cobra.Command{
 			assignmentMap[option] = a
 		}
 
-		var selectedAssignmentOption string
-		promptAssignment := &survey.Select{
-			Message: "Select an assignment:",
-			Options: assignmentOptions,
-		}
-		if err := survey.AskOne(promptAssignment, &selectedAssignmentOption); err != nil {
+		selectedAssignmentOption, err := pterm.DefaultInteractiveSelect.
+			WithDefaultText("Select an assignment").
+			WithOptions(assignmentOptions).
+			Show()
+		if err != nil {
 			return err
 		}
 		selectedAssignment := assignmentMap[selectedAssignmentOption]
@@ -91,7 +92,8 @@ var initCmd = &cobra.Command{
 			return fmt.Errorf("failed to save workspace config: %w", err)
 		}
 
-		fmt.Printf("Workspace initialized for %s - %s\n", selectedCourse.Name, selectedAssignment.Name)
+		ui.Success.Print("Current directory initialized ")
+		fmt.Println("for " + pterm.Bold.Sprintf("%s - %s", selectedCourse.Name, selectedAssignment.Name))
 		return nil
 	},
 }

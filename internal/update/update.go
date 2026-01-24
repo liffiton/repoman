@@ -9,7 +9,9 @@ import (
 	"runtime"
 
 	"github.com/minio/selfupdate"
-	"github.com/schollz/progressbar/v3"
+	"github.com/pterm/pterm"
+
+	"github.com/liffiton/repoman/internal/ui"
 )
 
 const (
@@ -31,7 +33,6 @@ type Asset struct {
 
 // CheckAndUpdate checks for a new version on GitHub and performs the update if available.
 func CheckAndUpdate(currentVersion string) (bool, error) {
-	// #nosec G107
 	resp, err := http.Get(fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", githubOwner, githubRepo))
 	if err != nil {
 		return false, fmt.Errorf("failed to check for updates: %w", err)
@@ -50,7 +51,7 @@ func CheckAndUpdate(currentVersion string) (bool, error) {
 		return false, fmt.Errorf("failed to decode release info: %w", err)
 	}
 
-	if release.TagName == currentVersion {
+	if release.TagName == currentVersion || release.TagName == fmt.Sprintf("v%s", currentVersion) {
 		return false, nil // Up to date
 	}
 
@@ -92,10 +93,19 @@ func doUpdate(url string) error {
 		return fmt.Errorf("unexpected status code downloading update: %d", resp.StatusCode)
 	}
 
-	bar := progressbar.DefaultBytes(
-		resp.ContentLength,
-		"Downloading update",
-	)
+	bar, _ := ui.Progressbar.
+		WithTotal(int(resp.ContentLength)).
+		WithTitle("Downloading update").
+		Start()
 
-	return selfupdate.Apply(io.TeeReader(resp.Body, bar), selfupdate.Options{})
+	return selfupdate.Apply(io.TeeReader(resp.Body, &progressWriter{bar}), selfupdate.Options{})
+}
+
+type progressWriter struct {
+	bar *pterm.ProgressbarPrinter
+}
+
+func (pw *progressWriter) Write(p []byte) (n int, err error) {
+	pw.bar.Add(len(p))
+	return len(p), nil
 }

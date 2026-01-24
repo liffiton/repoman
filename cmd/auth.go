@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/liffiton/repoman/internal/ui"
+	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
 
@@ -16,10 +18,15 @@ var authCmd = &cobra.Command{
 	Use:   "auth",
 	Short: "Configure authentication for the Repoman service",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		ui.PrintHeader("Configure Authentication")
+
 		var apiKey string
-		fmt.Print("Your API key can be found in the Settings page of the Class Repo Manager web application.\n")
-		fmt.Print("Enter API Key: ")
-		if _, err := fmt.Scanln(&apiKey); err != nil && err.Error() != "unexpected newline" {
+		ui.Dim.Println("Your API key can be found in the Settings page of the Class Repo Manager web application.")
+		apiKey, err := pterm.DefaultInteractiveTextInput.
+			WithDefaultText("Enter API Key").
+			WithMask("*").
+			Show()
+		if err != nil {
 			return fmt.Errorf("failed to read API key: %w", err)
 		}
 		apiKey = strings.TrimSpace(apiKey)
@@ -28,9 +35,11 @@ var authCmd = &cobra.Command{
 			return fmt.Errorf("API key cannot be empty")
 		}
 
-		var baseURL string
-		fmt.Printf("Enter Base URL (default, if nothing entered: [%s]): ", cfg.GetBaseURL())
-		if _, err := fmt.Scanln(&baseURL); err != nil && err.Error() != "unexpected newline" {
+		baseURL, err := pterm.DefaultInteractiveTextInput.
+			WithDefaultText("Enter Base URL").
+			WithDefaultValue(cfg.GetBaseURL()).
+			Show()
+		if err != nil {
 			return fmt.Errorf("failed to read Base URL: %w", err)
 		}
 		baseURL = strings.TrimSpace(baseURL)
@@ -45,18 +54,18 @@ var authCmd = &cobra.Command{
 			return fmt.Errorf("failed to save config: %w", err)
 		}
 
-		fmt.Println("\nAuthentication configured successfully!")
+		ui.Success.Println("\nAuthentication configured successfully!")
 
 		if result.KeyringUsed {
-			fmt.Println("API Key: Saved securely in the system keyring.")
+			ui.Info.Println("API Key: Saved securely in the system keyring.")
 		} else {
-			fmt.Printf("API Key: Saved in the config file (%s) because the system keyring was unavailable.\n", result.ConfigPath)
+			ui.Info.Printf("API Key: Saved in the config file (%s) because the system keyring was unavailable.\n", result.ConfigPath)
 		}
 
 		if result.FileWritten {
-			fmt.Printf("Base URL: %s (saved in %s)\n", cfg.GetBaseURL(), result.ConfigPath)
+			ui.Info.Printf("Base URL: %s (saved in %s)\n", cfg.GetBaseURL(), result.ConfigPath)
 		} else {
-			fmt.Printf("Base URL: %s (using default, no config file created)\n", cfg.GetBaseURL())
+			ui.Info.Printf("Base URL: %s (using default, no config file created)\n", cfg.GetBaseURL())
 		}
 
 		return nil

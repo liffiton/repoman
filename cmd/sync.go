@@ -7,7 +7,8 @@ import (
 	"github.com/liffiton/repoman/internal/api"
 	"github.com/liffiton/repoman/internal/config"
 	"github.com/liffiton/repoman/internal/git"
-	"github.com/schollz/progressbar/v3"
+	"github.com/liffiton/repoman/internal/ui"
+	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
 
@@ -45,9 +46,9 @@ var syncCmd = &cobra.Command{
 			return nil
 		}
 
-		fmt.Printf("Syncing %d repositories for %s...\n", len(repos), wcfg.AssignmentName)
+		ui.PrintHeader(fmt.Sprintf("Syncing %d repositories for ", len(repos)) + pterm.Bold.Sprintf("%s - %s", wcfg.CourseName, wcfg.AssignmentName))
 
-		bar := progressbar.Default(int64(len(repos)))
+		bar, _ := ui.Progressbar.WithTotal(len(repos)).Start()
 
 		manager := git.NewManager(5)
 		var gitRepos []git.RepoInfo
@@ -60,7 +61,7 @@ var syncCmd = &cobra.Command{
 		}
 
 		errs := manager.SyncAll(gitRepos, func() {
-			_ = bar.Add(1)
+			bar.Increment()
 		})
 
 		fmt.Println() // New line after progress bar
@@ -68,13 +69,14 @@ var syncCmd = &cobra.Command{
 		successCount := 0
 		for i, err := range errs {
 			if err != nil {
-				fmt.Printf("Error syncing %s: %v\n", repos[i].Name, err)
+				ui.Error.Printf("Error syncing %s: %v\n", repos[i].Name, err)
 			} else {
 				successCount++
 			}
 		}
 
-		fmt.Printf("Sync complete. %d/%d repositories synced successfully.\n", successCount, len(repos))
+		fmt.Println(ui.Success.Sprint("Sync complete. ") + fmt.Sprintf("%d/%d repositories synced successfully.", successCount, len(repos)))
+
 		return nil
 	},
 }

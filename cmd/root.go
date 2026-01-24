@@ -14,8 +14,8 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:     "repoman",
-	Short:   "Repoman is a CLI tool to manage Git repositories",
+	Use:   "repoman",
+	Short: "Repoman is a CLI tool to manage Git repositories",
 	CompletionOptions: cobra.CompletionOptions{
 		DisableDefaultCmd: true,
 	},

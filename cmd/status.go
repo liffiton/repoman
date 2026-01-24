@@ -4,14 +4,15 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 	"sync"
-	"text/tabwriter"
 	"time"
 
 	"github.com/liffiton/repoman/internal/api"
 	"github.com/liffiton/repoman/internal/config"
 	"github.com/liffiton/repoman/internal/git"
-	"github.com/schollz/progressbar/v3"
+	"github.com/liffiton/repoman/internal/ui"
+	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
 
@@ -41,15 +42,13 @@ var statusCmd = &cobra.Command{
 			return fmt.Errorf("failed to fetch repositories: %w", err)
 		}
 
-		fmt.Printf("Status for %s - %s\n\n", wcfg.CourseName, wcfg.AssignmentName)
+		ui.PrintHeader("Status for " + pterm.Bold.Sprintf("%s - %s", wcfg.CourseName, wcfg.AssignmentName))
 
-		bar := progressbar.Default(int64(len(repos)), "Checking status")
-
-		w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-		_, _ = fmt.Fprintln(w, "STUDENT/REPO\tBRANCH\tLAST COMMIT\tLOCAL STATUS\tSYNC STATE")
+		bar, _ := ui.Progressbar.WithTotal(len(repos)).WithTitle("Checking status").Start()
 
 		var wg sync.WaitGroup
-		results := make([]string, len(repos))
+		results := make([][]string, len(repos)+1)
+		results[0] = []string{"STUDENT/REPO", "BRANCH", "LAST COMMIT", "LOCAL STATUS", "SYNC STATE"}
 
 		sem := make(chan struct{}, 10) // Concurrency limit for status checks
 
@@ -62,8 +61,8 @@ var statusCmd = &cobra.Command{
 
 				localPath := r.Name
 				if _, err := os.Stat(localPath); os.IsNotExist(err) {
-					results[i] = fmt.Sprintf("%s\t-\t-\tMissing\t-", r.Name)
-					_ = bar.Add(1)
+					results[i+1] = []string{r.Name, "-", "-", pterm.Red("Missing"), "-"}
+					bar.Increment()
 					return
 				}
 
@@ -73,28 +72,57 @@ var statusCmd = &cobra.Command{
 
 				branch, status, err := git.GetStatus(localPath)
 				if err != nil {
-					results[i] = fmt.Sprintf("%s\tERROR\t-\t%v\t-", r.Name, err)
-					_ = bar.Add(1)
+					results[i+1] = []string{r.Name, "ERROR", "-", pterm.Red(err.Error()), "-"}
+					bar.Increment()
 					return
 				}
 
 				syncState, _ := git.GetSyncState(localPath)
 				lastCommit, _ := git.GetLastCommitTime(localPath)
-				results[i] = fmt.Sprintf("%s\t%s\t%s\t%s\t%s", r.Name, branch, formatCommitTime(lastCommit), status, syncState)
-				_ = bar.Add(1)
+				results[i+1] = []string{
+					r.Name,
+					branch,
+					formatCommitTime(lastCommit),
+					colorStatus(status),
+					colorSyncState(syncState),
+				}
+				bar.Increment()
 			}(i, repo)
 		}
 
 		wg.Wait()
 		fmt.Println() // New line after progress bar
 
-		for _, res := range results {
-			_, _ = fmt.Fprintln(w, res)
-		}
-		_ = w.Flush()
+		_ = pterm.DefaultTable.WithHasHeader().WithData(results).Render()
 
 		return nil
 	},
+}
+
+func colorStatus(status string) string {
+	if status == "Clean" {
+		return pterm.Green(status)
+	}
+	if strings.Contains(status, "modified") {
+		return pterm.Yellow(status)
+	}
+	return status
+}
+
+func colorSyncState(state string) string {
+	if state == "Synced" {
+		return pterm.Green(state)
+	}
+	if strings.HasPrefix(state, "Behind") {
+		return pterm.Red(state)
+	}
+	if strings.HasPrefix(state, "Ahead") {
+		return pterm.Blue(state)
+	}
+	if strings.HasPrefix(state, "Diverged") {
+		return pterm.Magenta(state)
+	}
+	return state
 }
 
 func formatCommitTime(t time.Time) string {
