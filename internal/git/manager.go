@@ -132,6 +132,7 @@ func concurrentMap[T any, R any](concurrency int, items []T, worker func(T) R, p
 	close(tasks)
 
 	var wg sync.WaitGroup
+	var mu sync.Mutex
 	numWorkers := concurrency
 	if numWorkers > len(items) {
 		numWorkers = len(items)
@@ -142,9 +143,12 @@ func concurrentMap[T any, R any](concurrency int, items []T, worker func(T) R, p
 		go func() {
 			defer wg.Done()
 			for t := range tasks {
-				results[t.index] = worker(t.item)
+				res := worker(t.item)
+				results[t.index] = res
 				if progress != nil {
+					mu.Lock()
 					progress()
+					mu.Unlock()
 				}
 			}
 		}()
