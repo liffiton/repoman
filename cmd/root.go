@@ -16,6 +16,9 @@ var (
 var rootCmd = &cobra.Command{
 	Use:     "repoman",
 	Short:   "Repoman is a CLI tool to manage Git repositories",
+	CompletionOptions: cobra.CompletionOptions{
+		DisableDefaultCmd: true,
+	},
 	Version: version,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		var err error
