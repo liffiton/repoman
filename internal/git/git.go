@@ -278,14 +278,19 @@ func GetSyncState(path string) (string, error) {
 }
 
 // GetLastCommitTime returns the time of the most recent commit in the repository (across all branches).
+// If the repository has no commits, it returns a zero time and no error.
 func GetLastCommitTime(path string) (time.Time, error) {
 	out, err := runGitCommand("-C", path, "log", "-1", "--format=%at", "--all")
 	if err != nil {
+		// If it's an empty repo or some other error, check if it's actually empty
+		if count, countErr := GetCommitCount(path); countErr == nil && count == 0 {
+			return time.Time{}, nil
+		}
 		return time.Time{}, err
 	}
 	s := strings.TrimSpace(string(out))
 	if s == "" {
-		return time.Time{}, fmt.Errorf("no commits found")
+		return time.Time{}, nil
 	}
 	sec, err := strconv.ParseInt(s, 10, 64)
 	if err != nil {

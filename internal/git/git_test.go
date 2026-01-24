@@ -168,9 +168,12 @@ func TestGetLastCommitTime(t *testing.T) {
 	runGit("config", "user.name", "Test User")
 
 	// Test empty repo
-	_, err = GetLastCommitTime(repoPath)
-	if err == nil {
-		t.Error("expected error for empty repository, got nil")
+	commitTime, err := GetLastCommitTime(repoPath)
+	if err != nil {
+		t.Errorf("expected no error for empty repository, got %v", err)
+	}
+	if !commitTime.IsZero() {
+		t.Errorf("expected zero time for empty repository, got %v", commitTime)
 	}
 
 	// Create a commit
@@ -182,7 +185,7 @@ func TestGetLastCommitTime(t *testing.T) {
 	now := time.Now().Unix()
 	runGit("commit", "-m", "initial commit")
 
-	commitTime, err := GetLastCommitTime(repoPath)
+	commitTime, err = GetLastCommitTime(repoPath)
 	if err != nil {
 		t.Fatalf("GetLastCommitTime failed: %v", err)
 	}

@@ -3,19 +3,19 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/liffiton/repoman/internal/api"
 	"github.com/liffiton/repoman/internal/git"
 	"github.com/liffiton/repoman/internal/ui"
 	"github.com/pterm/pterm"
 	"github.com/spf13/cobra"
 )
 
+var noFetch bool
+
 func init() {
+	statusCmd.Flags().BoolVarP(&noFetch, "no-fetch", "n", false, "Do not fetch from remote")
 	rootCmd.AddCommand(statusCmd)
 }
 
@@ -36,52 +36,43 @@ var statusCmd = &cobra.Command{
 
 		bar, _ := ui.Progressbar.WithTotal(len(ctx.Repos)).WithTitle("Checking status").Start()
 
-		var wg sync.WaitGroup
-		results := make([][]string, len(ctx.Repos)+1)
-		results[0] = []string{"STUDENT/REPO", "BRANCH", "LAST COMMIT", "LOCAL STATUS", "SYNC STATE"}
-
-		sem := make(chan struct{}, 10) // Concurrency limit for status checks
-
-		for i, repo := range ctx.Repos {
-			wg.Add(1)
-			go func(i int, r api.Repo) {
-				defer wg.Done()
-				sem <- struct{}{}
-				defer func() { <-sem }()
-
-				localPath := r.Name
-				if _, err := os.Stat(localPath); os.IsNotExist(err) {
-					results[i+1] = []string{r.Name, "-", "-", pterm.Red("Missing"), "-"}
-					bar.Increment()
-					return
-				}
-
-				// Optional: Fetch to get accurate sync state.
-				// Since it's 10-30 repos, we'll do it.
-				_ = git.Fetch(localPath)
-
-				branch, status, err := git.GetStatus(localPath)
-				if err != nil {
-					results[i+1] = []string{r.Name, "ERROR", "-", pterm.Red(err.Error()), "-"}
-					bar.Increment()
-					return
-				}
-
-				syncState, _ := git.GetSyncState(localPath)
-				lastCommit, _ := git.GetLastCommitTime(localPath)
-				results[i+1] = []string{
-					r.Name,
-					branch,
-					formatCommitTime(lastCommit),
-					colorStatus(status),
-					colorSyncState(syncState),
-				}
-				bar.Increment()
-			}(i, repo)
+		manager := git.NewManager(20)
+		var gitRepos []git.RepoInfo
+		for _, r := range ctx.Repos {
+			gitRepos = append(gitRepos, git.RepoInfo{
+				Name: r.Name,
+				Path: r.Name,
+			})
 		}
 
-		wg.Wait()
+		repoStatuses := manager.StatusAll(gitRepos, !noFetch, func() {
+			bar.Increment()
+		})
+
 		fmt.Println() // New line after progress bar
+
+		results := make([][]string, len(repoStatuses)+1)
+		results[0] = []string{"STUDENT/REPO", "BRANCH", "LAST COMMIT", "LOCAL STATUS", "SYNC STATE"}
+
+		for i, s := range repoStatuses {
+			if s.Error != nil {
+				results[i+1] = []string{s.Name, "ERROR", "-", pterm.Red(s.Error.Error()), "-"}
+				continue
+			}
+
+			branch := s.Branch
+			if branch == "" {
+				branch = "-"
+			}
+
+			results[i+1] = []string{
+				s.Name,
+				branch,
+				formatCommitTime(s.LastCommit),
+				colorStatus(s.Status),
+				colorSyncState(s.SyncState),
+			}
+		}
 
 		_ = pterm.DefaultTable.WithHasHeader().WithData(results).Render()
 
@@ -93,6 +84,12 @@ func colorStatus(status string) string {
 	if status == "Clean" {
 		return pterm.Green(status)
 	}
+	if strings.HasPrefix(status, "Error: ") {
+		return pterm.Red(status)
+	}
+	if status == "Missing" {
+		return pterm.Red(status)
+	}
 	if strings.Contains(status, "modified") {
 		return pterm.Yellow(status)
 	}
@@ -100,8 +97,17 @@ func colorStatus(status string) string {
 }
 
 func colorSyncState(state string) string {
+	if state == "" {
+		return "-"
+	}
 	if state == "Synced" {
 		return pterm.Green(state)
+	}
+	if strings.Contains(state, "Error") {
+		return pterm.Red(state)
+	}
+	if strings.Contains(state, "Stale") || state == "Unknown" || state == "No Upstream" {
+		return pterm.Yellow(state)
 	}
 	if strings.HasPrefix(state, "Behind") {
 		return pterm.Red(state)

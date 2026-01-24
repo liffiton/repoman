@@ -38,10 +38,11 @@ var syncCmd = &cobra.Command{
 
 		bar, _ := ui.Progressbar.WithTotal(len(ctx.Repos)).Start()
 
-		manager := git.NewManager(5)
+		manager := git.NewManager(6)
 		var gitRepos []git.RepoInfo
 		for _, r := range ctx.Repos {
 			gitRepos = append(gitRepos, git.RepoInfo{
+				Name:    r.Name,
 				URL:     r.URL,
 				Path:    r.Name, // Clone into current directory using the repo name
 				UseHTTP: useHTTP,
