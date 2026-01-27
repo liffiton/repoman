@@ -3,14 +3,14 @@
 Repoman is a CLI tool designed for instructors to manage student repositories. It interacts with a web application to clone, sync, and track repositories for specific courses and assignments.
 
 > [!IMPORTANT]
-> **Disclosure and warning:** This program is 100% vibe-coded. It may be full of subtle bugs and jank.
+> **Disclosure and warning:** This program is mostly vibe-coded. I've reviewed
+> most but not all of it, and I've written some small parts myself. It may be
+> full of subtle bugs and jank.
 
 ## Features
 
 - **Workspace-Based Workflow**: Link any directory to a specific Course/Assignment using `repoman init`.
-- **Guided Setup**: Exploratory initialization with interactive menus to select courses and assignments.
 - **Combined Dashboard**: A unified `status` view showing server-side repo lists alongside local Git status (branch, modified files, ahead/behind).
-- **Secure Configuration**: Stores API keys using the system keyring (via `go-keyring`) with a secure file fallback.
 - **Concurrent Syncing**: Concurrently clones or pulls multiple repositories.
 - **Self-Update**: Automatically checks for and installs the latest version from GitHub Releases.
 
