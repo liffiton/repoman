@@ -49,7 +49,7 @@ var syncCmd = &cobra.Command{
 			})
 		}
 
-		errs := manager.SyncAll(gitRepos, func() {
+		errs := manager.SyncAllCtx(cmd.Context(), gitRepos, func() {
 			bar.Increment()
 		})
 

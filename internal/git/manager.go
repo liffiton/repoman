@@ -1,6 +1,7 @@
 package git
 
 import (
+	"context"
 	"os"
 	"sync"
 	"time"
@@ -53,23 +54,36 @@ func NewManager(concurrency int) *Manager {
 // SyncAll syncs all provided repositories concurrently.
 // If progress is not nil, it is called after each repository is synced.
 func (m *Manager) SyncAll(repos []RepoInfo, progress func()) []error {
-	return concurrentMap(m.concurrency, repos, syncRepo, progress)
+	return m.SyncAllCtx(context.Background(), repos, progress)
+}
+
+// SyncAllCtx syncs all provided repositories concurrently.
+// Uses the provided context for timeout/cancellation control.
+// If progress is not nil, it is called after each repository is synced.
+func (m *Manager) SyncAllCtx(ctx context.Context, repos []RepoInfo, progress func()) []error {
+	worker := func(ctx context.Context, r RepoInfo) error {
+		return SyncCtx(ctx, r.URL, r.Path, r.UseHTTP)
+	}
+	return concurrentMap(ctx, m.concurrency, repos, worker, progress)
 }
 
 // StatusAll fetches status for all provided repositories concurrently.
 // If progress is not nil, it is called after each repository's status is checked.
 func (m *Manager) StatusAll(repos []RepoInfo, fetch bool, progress func()) []RepoStatus {
-	worker := func(r RepoInfo) RepoStatus {
-		return fetchStatus(r, fetch)
+	return m.StatusAllCtx(context.Background(), repos, fetch, progress)
+}
+
+// StatusAllCtx fetches status for all provided repositories concurrently.
+// Uses the provided context for timeout/cancellation control.
+// If progress is not nil, it is called after each repository's status is checked.
+func (m *Manager) StatusAllCtx(ctx context.Context, repos []RepoInfo, fetch bool, progress func()) []RepoStatus {
+	worker := func(ctx context.Context, r RepoInfo) RepoStatus {
+		return fetchStatusWithCtx(ctx, r, fetch)
 	}
-	return concurrentMap(m.concurrency, repos, worker, progress)
+	return concurrentMap(ctx, m.concurrency, repos, worker, progress)
 }
 
-func syncRepo(r RepoInfo) error {
-	return Sync(r.URL, r.Path, r.UseHTTP)
-}
-
-func fetchStatus(r RepoInfo, fetch bool) RepoStatus {
+func fetchStatusWithCtx(ctx context.Context, r RepoInfo, fetch bool) RepoStatus {
 	status := RepoStatus{Name: r.Name}
 
 	if _, err := os.Stat(r.Path); os.IsNotExist(err) {
@@ -79,10 +93,12 @@ func fetchStatus(r RepoInfo, fetch bool) RepoStatus {
 
 	var fetchErr error
 	if fetch {
-		fetchErr = Fetch(r.Path)
+		fetchCtx, fetchCancel := context.WithTimeout(ctx, defaultPullTimeout)
+		defer fetchCancel()
+		fetchErr = FetchCtx(fetchCtx, r.Path)
 	}
 
-	branch, repoSummary, err := GetStatus(r.Path)
+	branch, repoSummary, err := GetStatusCtx(ctx, r.Path)
 	status.Branch = branch
 	if err != nil {
 		status.Status = StatusError
@@ -91,7 +107,7 @@ func fetchStatus(r RepoInfo, fetch bool) RepoStatus {
 		status.Status = repoSummary
 	}
 
-	syncState, syncErr := GetSyncState(r.Path)
+	syncState, syncErr := GetSyncStateCtx(ctx, r.Path)
 	if syncErr != nil {
 		status.SyncState = StateUnknown
 		if status.Error == nil {
@@ -104,7 +120,7 @@ func fetchStatus(r RepoInfo, fetch bool) RepoStatus {
 		}
 	}
 
-	lastCommit, err := GetLastCommitTime(r.Path)
+	lastCommit, err := GetLastCommitTimeCtx(ctx, r.Path)
 	status.LastCommit = lastCommit
 	if err != nil && status.Error == nil {
 		status.Error = err
@@ -114,7 +130,8 @@ func fetchStatus(r RepoInfo, fetch bool) RepoStatus {
 }
 
 // concurrentMap transforms a slice of T into a slice of R concurrently using a worker pool.
-func concurrentMap[T any, R any](concurrency int, items []T, worker func(T) R, progress func()) []R {
+// It respects context cancellation and will stop early if the context is canceled.
+func concurrentMap[T any, R any](ctx context.Context, concurrency int, items []T, worker func(context.Context, T) R, progress func()) []R {
 	results := make([]R, len(items))
 	if len(items) == 0 {
 		return results
@@ -142,13 +159,21 @@ func concurrentMap[T any, R any](concurrency int, items []T, worker func(T) R, p
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for t := range tasks {
-				res := worker(t.item)
-				results[t.index] = res
-				if progress != nil {
-					mu.Lock()
-					progress()
-					mu.Unlock()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case t, ok := <-tasks:
+					if !ok {
+						return
+					}
+					res := worker(ctx, t.item)
+					results[t.index] = res
+					if progress != nil {
+						mu.Lock()
+						progress()
+						mu.Unlock()
+					}
 				}
 			}
 		}()

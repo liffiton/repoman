@@ -2,6 +2,7 @@
 package git
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,34 +11,50 @@ import (
 	"time"
 )
 
-// Run a git command with the given arguments passed to the git CLI command.
-// Strictly checks SSH host keys, failing without a prompt if they are missing
-// or don't match.
-func runGitCommand(args ...string) ([]byte, error) {
-	return runGitCommandAcceptNewHosts(false, args...)
-}
-
-// Run a git command with the given arguments passed to the git CLI command.
-// Allows accepting new host keys without a prompt (if acceptNewHosts=true).
-// Otherwise, strictly checks SSH host keys, failing without a prompt if they
-// are missing or don't match.
-func runGitCommandAcceptNewHosts(acceptNewHosts bool, args ...string) ([]byte, error) {
-	cmd := exec.Command("git", args...)
+// runGitCmd executes a git command with the given arguments.
+// It enforces non-interactive behavior and strict host key checking.
+// The acceptNewHosts flag controls whether new host keys are accepted automatically.
+func runGitCmd(ctx context.Context, acceptNewHosts bool, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, "git", args...)
 
 	strictHostKeyChecking := "yes"
 	if acceptNewHosts {
 		strictHostKeyChecking = "accept-new"
 	}
 
+	sshOptions := fmt.Sprintf("-o StrictHostKeyChecking=%s -o BatchMode=yes -o ConnectTimeout=10", strictHostKeyChecking)
+
+	var sshCommand string
+	if existingSSH := os.Getenv("GIT_SSH_COMMAND"); existingSSH != "" {
+		sshCommand = existingSSH + " " + sshOptions
+	} else {
+		sshCommand = "ssh " + sshOptions
+	}
+
 	cmd.Env = append(os.Environ(),
-		fmt.Sprintf("GIT_SSH_COMMAND=ssh -o StrictHostKeyChecking=%s", strictHostKeyChecking))
+		"GIT_TERMINAL_PROMPT=0",
+		fmt.Sprintf("GIT_SSH_COMMAND=%s", sshCommand))
 
 	return cmd.CombinedOutput()
 }
 
+const (
+	defaultCloneTimeout = 5 * time.Minute
+	defaultPullTimeout  = 2 * time.Minute
+)
+
 // Sync ensures the repository at the given URL is present and up-to-date at the given path.
 // It uses the SSH URL by default unless useHTTP is true.
 func Sync(url, path string, useHTTP bool) error {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultCloneTimeout)
+	defer cancel()
+	return SyncCtx(ctx, url, path, useHTTP)
+}
+
+// SyncCtx ensures the repository at the given URL is present and up-to-date at the given path.
+// It uses the SSH URL by default unless useHTTP is true.
+// Uses the provided context for timeout/cancellation control.
+func SyncCtx(ctx context.Context, url, path string, useHTTP bool) error {
 	if useHTTP {
 		url = ToHTTP(url)
 	} else {
@@ -52,17 +69,26 @@ func Sync(url, path string, useHTTP bool) error {
 		if _, err := os.Stat(fmt.Sprintf("%s/.git", path)); err != nil {
 			return fmt.Errorf("path %s exists but is not a git repository", path)
 		}
-		return Pull(path)
+		return PullCtx(ctx, path)
 	} else if !os.IsNotExist(err) {
 		return err
 	}
 
-	return Clone(url, path, useHTTP)
+	return CloneCtx(ctx, url, path, useHTTP)
 }
 
 // Clone clones a repository.
 // It uses the SSH URL by default unless useHTTP is true.
 func Clone(url, path string, useHTTP bool) error {
+	ctx, cancel := context.WithTimeout(context.Background(), defaultCloneTimeout)
+	defer cancel()
+	return CloneCtx(ctx, url, path, useHTTP)
+}
+
+// CloneCtx clones a repository.
+// It uses the SSH URL by default unless useHTTP is true.
+// Uses the provided context for timeout/cancellation control.
+func CloneCtx(ctx context.Context, url, path string, useHTTP bool) error {
 	if useHTTP {
 		url = ToHTTP(url)
 	} else {
@@ -75,9 +101,9 @@ func Clone(url, path string, useHTTP bool) error {
 
 	// Accept a new host key (only here on clone) to streamline if using this tool
 	// is the first time the user has connected to the Git/SSH host.
-	output, err := runGitCommandAcceptNewHosts(true, "clone", url, path)
+	output, err := runGitCmd(ctx, true, "clone", url, path)
 	if err != nil {
-		return fmt.Errorf("git clone failed: %w (output: %s)", err, strings.TrimSpace(string(output)))
+		return wrapGitError(err, output, "git clone")
 	}
 	return nil
 }
@@ -151,13 +177,21 @@ func ExtractRepoName(url string) string {
 
 // Pull pulls changes in an existing repository.
 func Pull(path string) error {
-	output, err := runGitCommand("-C", path, "pull")
+	ctx, cancel := context.WithTimeout(context.Background(), defaultPullTimeout)
+	defer cancel()
+	return PullCtx(ctx, path)
+}
+
+// PullCtx pulls changes in an existing repository.
+// Uses the provided context for timeout/cancellation control.
+func PullCtx(ctx context.Context, path string) error {
+	output, err := runGitCmd(ctx, false, "-C", path, "pull")
 	if err != nil {
 		// Check if it's an empty repository
-		if count, countErr := GetCommitCount(path); countErr == nil && count == 0 {
+		if count, countErr := GetCommitCountCtx(ctx, path); countErr == nil && count == 0 {
 			return fmt.Errorf("repository is empty")
 		}
-		return fmt.Errorf("git pull failed: %w (output: %s)", err, strings.TrimSpace(string(output)))
+		return wrapGitError(err, output, "git pull")
 	}
 	return nil
 }
@@ -173,10 +207,16 @@ func validateURL(url string) error {
 
 // GetStatus returns the current branch and a summary of the status.
 func GetStatus(path string) (branch, summary string, err error) {
-	branch = GetBranch(path)
+	return GetStatusCtx(context.Background(), path)
+}
+
+// GetStatusCtx returns the current branch and a summary of the status.
+// Uses the provided context for timeout/cancellation control.
+func GetStatusCtx(ctx context.Context, path string) (branch, summary string, err error) {
+	branch = GetBranchCtx(ctx, path)
 
 	// Check if the repository is empty
-	count, err := GetCommitCount(path)
+	count, err := GetCommitCountCtx(ctx, path)
 	if err != nil {
 		return branch, "", fmt.Errorf("failed to get commit count: %w", err)
 	}
@@ -185,7 +225,7 @@ func GetStatus(path string) (branch, summary string, err error) {
 	}
 
 	// Get status summary
-	out, err := runGitCommand("-C", path, "status", "--short")
+	out, err := runGitCmd(ctx, false, "-C", path, "status", "--short")
 	if err != nil {
 		return branch, "", fmt.Errorf("failed to get status: %w", err)
 	}
@@ -202,7 +242,13 @@ func GetStatus(path string) (branch, summary string, err error) {
 
 // GetCommitCount returns the number of commits in the repository.
 func GetCommitCount(path string) (int, error) {
-	out, err := runGitCommand("-C", path, "rev-list", "--all", "--count")
+	return GetCommitCountCtx(context.Background(), path)
+}
+
+// GetCommitCountCtx returns the number of commits in the repository.
+// Uses the provided context for timeout/cancellation control.
+func GetCommitCountCtx(ctx context.Context, path string) (int, error) {
+	out, err := runGitCmd(ctx, false, "-C", path, "rev-list", "--all", "--count")
 	if err != nil {
 		return 0, err
 	}
@@ -217,14 +263,21 @@ func GetCommitCount(path string) (int, error) {
 // GetBranch returns the name of the current branch.
 // It is more robust than 'git rev-parse --abbrev-ref HEAD' as it works on empty repositories.
 func GetBranch(path string) string {
+	return GetBranchCtx(context.Background(), path)
+}
+
+// GetBranchCtx returns the name of the current branch.
+// It is more robust than 'git rev-parse --abbrev-ref HEAD' as it works on empty repositories.
+// Uses the provided context for timeout/cancellation control.
+func GetBranchCtx(ctx context.Context, path string) string {
 	// Try symbolic-ref first (works on empty repos)
-	out, err := runGitCommand("-C", path, "symbolic-ref", "--short", "HEAD")
+	out, err := runGitCmd(ctx, false, "-C", path, "symbolic-ref", "--short", "HEAD")
 	if err == nil {
 		return strings.TrimSpace(string(out))
 	}
 
 	// Fallback to rev-parse for detached HEAD
-	out, err = runGitCommand("-C", path, "rev-parse", "--abbrev-ref", "HEAD")
+	out, err = runGitCmd(ctx, false, "-C", path, "rev-parse", "--abbrev-ref", "HEAD")
 	if err == nil {
 		return strings.TrimSpace(string(out))
 	}
@@ -234,17 +287,31 @@ func GetBranch(path string) string {
 
 // Fetch fetches from the remote.
 func Fetch(path string) error {
-	_, err := runGitCommand("-C", path, "fetch")
+	ctx, cancel := context.WithTimeout(context.Background(), defaultPullTimeout)
+	defer cancel()
+	return FetchCtx(ctx, path)
+}
+
+// FetchCtx fetches from the remote.
+// Uses the provided context for timeout/cancellation control.
+func FetchCtx(ctx context.Context, path string) error {
+	output, err := runGitCmd(ctx, false, "-C", path, "fetch")
 	if err != nil {
-		return fmt.Errorf("git fetch failed: %w", err)
+		return wrapGitError(err, output, "git fetch")
 	}
 	return nil
 }
 
 // GetSyncState returns whether the local repo is ahead, behind, or even with the remote.
 func GetSyncState(path string) (string, error) {
+	return GetSyncStateCtx(context.Background(), path)
+}
+
+// GetSyncStateCtx returns whether the local repo is ahead, behind, or even with the remote.
+// Uses the provided context for timeout/cancellation control.
+func GetSyncStateCtx(ctx context.Context, path string) (string, error) {
 	// If the repository is empty, sync state doesn't really apply in the same way
-	count, err := GetCommitCount(path)
+	count, err := GetCommitCountCtx(ctx, path)
 	if err != nil {
 		return "Unknown", err
 	}
@@ -252,7 +319,7 @@ func GetSyncState(path string) (string, error) {
 		return "-", nil
 	}
 
-	out, err := runGitCommand("-C", path, "rev-list", "--left-right", "--count", "HEAD...@{u}")
+	out, err := runGitCmd(ctx, false, "-C", path, "rev-list", "--left-right", "--count", "HEAD...@{u}")
 	if err != nil {
 		return "Unknown", fmt.Errorf("failed to get sync state: %w", err)
 	}
@@ -280,10 +347,17 @@ func GetSyncState(path string) (string, error) {
 // GetLastCommitTime returns the time of the most recent commit in the repository (across all branches).
 // If the repository has no commits, it returns a zero time and no error.
 func GetLastCommitTime(path string) (time.Time, error) {
-	out, err := runGitCommand("-C", path, "log", "-1", "--format=%at", "--all")
+	return GetLastCommitTimeCtx(context.Background(), path)
+}
+
+// GetLastCommitTimeCtx returns the time of the most recent commit in the repository (across all branches).
+// If the repository has no commits, it returns a zero time and no error.
+// Uses the provided context for timeout/cancellation control.
+func GetLastCommitTimeCtx(ctx context.Context, path string) (time.Time, error) {
+	out, err := runGitCmd(ctx, false, "-C", path, "log", "-1", "--format=%at", "--all")
 	if err != nil {
 		// If it's an empty repo or some other error, check if it's actually empty
-		if count, countErr := GetCommitCount(path); countErr == nil && count == 0 {
+		if count, countErr := GetCommitCountCtx(ctx, path); countErr == nil && count == 0 {
 			return time.Time{}, nil
 		}
 		return time.Time{}, err
@@ -297,4 +371,40 @@ func GetLastCommitTime(path string) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("failed to parse commit time: %w", err)
 	}
 	return time.Unix(sec, 0), nil
+}
+
+func wrapGitError(err error, output []byte, operation string) error {
+	outputStr := string(output)
+	errMsg := err.Error()
+
+	hint := ""
+
+	switch {
+	case strings.Contains(outputStr, "Permission denied, please try again"),
+		strings.Contains(outputStr, "Permission denied (publickey)"),
+		strings.Contains(outputStr, "publickey"),
+		strings.Contains(errMsg, "exit status 255"):
+		hint = "SSH authentication failed. Ensure your SSH key is added to ssh-agent (ssh-add) and your public key is registered with the remote server."
+
+	case strings.Contains(outputStr, "Authentication failed"),
+		strings.Contains(outputStr, "401"),
+		strings.Contains(outputStr, "403"),
+		strings.Contains(outputStr, "Logon failed"):
+		hint = "HTTP authentication failed. Configure a Git credential helper or check your credentials."
+
+	case strings.Contains(outputStr, "Connection refused"),
+		strings.Contains(outputStr, "Connection timed out"):
+		hint = "Connection refused/timed out. The remote server may be down or unreachable."
+
+	case strings.Contains(outputStr, "Host key verification failed"):
+		hint = "SSH host key verification failed. This is a security issue - investigate before proceeding."
+
+	case strings.Contains(outputStr, "fatal: bad object") || strings.Contains(outputStr, "fatal: remote error"):
+		hint = "Remote error - the repository may not exist or you may not have access."
+	}
+
+	if hint != "" {
+		return fmt.Errorf("%s failed: %w\n  hint: %s", operation, err, hint)
+	}
+	return fmt.Errorf("%s failed: %w", operation, err)
 }

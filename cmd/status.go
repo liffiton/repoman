@@ -45,7 +45,7 @@ var statusCmd = &cobra.Command{
 			})
 		}
 
-		repoStatuses := manager.StatusAll(gitRepos, !noFetch, func() {
+		repoStatuses := manager.StatusAllCtx(cmd.Context(), gitRepos, !noFetch, func() {
 			bar.Increment()
 		})
 
