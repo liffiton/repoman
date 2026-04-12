@@ -111,27 +111,20 @@ func CloneCtx(ctx context.Context, url, path string, useHTTP bool) error {
 // ToSSH converts an HTTP/HTTPS git URL to an SSH git URL.
 // If the URL is already an SSH URL or not an HTTP URL, it is returned unchanged.
 func ToSSH(url string) string {
-	if strings.HasPrefix(url, "https://") || strings.HasPrefix(url, "http://") {
-		// Remove protocol
-		u := url
-		if strings.HasPrefix(u, "https://") {
-			u = u[8:]
-		} else {
-			u = u[7:]
+	u := strings.TrimPrefix(url, "https://")
+	u = strings.TrimPrefix(u, "http://")
+	if u == url {
+		// url was not an HTTP URL.
+		return url
+	}
+	u = strings.TrimSuffix(u, "/")
+	parts := strings.SplitN(u, "/", 2)
+	if len(parts) == 2 {
+		repoPath := parts[1]
+		if !strings.HasSuffix(repoPath, ".git") {
+			repoPath += ".git"
 		}
-
-		u = strings.TrimSuffix(u, "/")
-
-		// Split host and path
-		parts := strings.SplitN(u, "/", 2)
-		if len(parts) == 2 {
-			host := parts[0]
-			repoPath := parts[1]
-			if !strings.HasSuffix(repoPath, ".git") {
-				repoPath += ".git"
-			}
-			return fmt.Sprintf("git@%s:%s", host, repoPath)
-		}
+		return fmt.Sprintf("git@%s:%s", parts[0], repoPath)
 	}
 	return url
 }
@@ -140,17 +133,15 @@ func ToSSH(url string) string {
 // If the URL is already an HTTPS URL or not an SSH URL, it is returned unchanged.
 func ToHTTP(url string) string {
 	if strings.HasPrefix(url, "git@") {
-		u := strings.TrimSuffix(url[4:], ".git")
-		u = strings.TrimSuffix(u, "/")
+		u := strings.TrimPrefix(url, "git@")
+		u = strings.TrimSuffix(u, ".git")
 		parts := strings.SplitN(u, ":", 2)
 		if len(parts) == 2 {
-			host := parts[0]
-			repoPath := parts[1]
-			return fmt.Sprintf("https://%s/%s", host, repoPath)
+			return fmt.Sprintf("https://%s/%s", parts[0], parts[1])
 		}
 	} else if strings.HasPrefix(url, "ssh://git@") {
-		u := strings.TrimSuffix(url[10:], ".git")
-		u = strings.TrimSuffix(u, "/")
+		u := strings.TrimPrefix(url, "ssh://git@")
+		u = strings.TrimSuffix(u, ".git")
 		return "https://" + u
 	}
 	return url
@@ -158,21 +149,17 @@ func ToHTTP(url string) string {
 
 // ExtractRepoName extracts the repository name from a git URL.
 func ExtractRepoName(url string) string {
-	u := strings.TrimSuffix(url, "/")
-	u = strings.TrimSuffix(u, ".git")
-
-	// Split by '/' and take the last part
-	parts := strings.Split(u, "/")
-	if len(parts) > 0 {
-		last := parts[len(parts)-1]
-		// Handle git@github.com:repo.git (no slash between host and repo)
-		if strings.Contains(last, ":") {
-			subParts := strings.Split(last, ":")
-			return subParts[len(subParts)-1]
-		}
-		return last
+	url = strings.TrimSuffix(url, ".git")
+	url = strings.TrimSuffix(url, "/")
+	// Get last segment after "/"
+	if idx := strings.LastIndex(url, "/"); idx >= 0 {
+		url = url[idx+1:]
 	}
-	return ""
+	// Handle git@host:repo format
+	if idx := strings.LastIndex(url, ":"); idx >= 0 {
+		url = url[idx+1:]
+	}
+	return url
 }
 
 // Pull pulls changes in an existing repository.
