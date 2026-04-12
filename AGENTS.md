@@ -36,24 +36,8 @@ Repoman uses standard Go toolchain commands for quality assurance.
 
 ## 2. Code Style Guidelines
 
-### Naming Conventions
-- **Packages:** Short, lowercase, single-word names (e.g., `git`, `config`, `api`).
-- **Functions/Variables:** 
-  - `camelCase` for unexported (private) symbols.
-  - `PascalCase` for exported (public) symbols.
-- **Interfaces:** Usually end in `-er` if they define a single method (e.g., `Cloner`, `Updater`).
-- **Initialisms:** Keep them consistent (e.g., `APIKey`, not `ApiKey`; `URL`, not `Url`).
-
-### Types and Structs
-- Use structs to group related data.
-- Prefer functional options for complex constructors.
-- Keep struct sizes manageable and prefer composition over deep embedding.
-
 ### Error Handling
-- Errors should be handled explicitly. Do not ignore errors unless there is a very good reason (and document it).
 - Wrap errors with context using `fmt.Errorf("context: %w", err)`.
-- Use specific error types or `errors.Is` / `errors.As` for checking sentinel errors.
-- **Avoid panics** in library code; reserve them for truly unrecoverable setup issues in `main`.
 
 ### Security
 - **API Keys:** Never hardcode secrets. Use the OS-native keyring via `github.com/zalando/go-keyring` for secure storage. Fallback to a config file with `0600` permissions in the user's config directory (`os.UserConfigDir()`).
@@ -72,7 +56,6 @@ Repoman uses standard Go toolchain commands for quality assurance.
 - `internal/update`: Self-update logic using GitHub Releases.
 
 ### Key Files & Responsibilities
-- `main.go`: Entry point for the application.
 - `cmd/root.go`: Root command and global flag definitions.
 - `cmd/sync.go`: Implementation of the `sync` command, uses `internal/git` to clone/pull repos.
 - `cmd/status.go`: Implementation of the `status` command, checks local repo states.
