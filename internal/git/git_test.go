@@ -194,3 +194,33 @@ func TestGetLastCommitTime(t *testing.T) {
 		t.Errorf("expected commit time to be at least %d, got %d", now, commitTime.Unix())
 	}
 }
+
+func TestPullEmptyRepo(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "repoman-git-pull-empty-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	repoPath := filepath.Join(tmpDir, "repo")
+	if err := os.MkdirAll(repoPath, 0o750); err != nil {
+		t.Fatalf("failed to create repo dir: %v", err)
+	}
+
+	runGit := func(args ...string) {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = repoPath
+		if output, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git command failed: %v (output: %s)", err, string(output))
+		}
+	}
+
+	runGit("init", "-b", "main")
+	runGit("config", "user.email", "test@example.com")
+	runGit("config", "user.name", "Test User")
+
+	// Pull on empty repo should not error
+	if err := Pull(repoPath); err != nil {
+		t.Errorf("expected no error for pull on empty repository, got %v", err)
+	}
+}

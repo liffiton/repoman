@@ -19,7 +19,7 @@ import (
 // shell interpretation, preventing shell injection attacks. GIT_SSH_COMMAND inherits
 // Git's trust model—the environment must be trusted, as with any Git operation.
 func runGitCmd(ctx context.Context, acceptNewHosts bool, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, "git", args...)  //#nosec G204
+	cmd := exec.CommandContext(ctx, "git", args...) //#nosec G204
 
 	strictHostKeyChecking := "yes"
 	if acceptNewHosts {
@@ -30,8 +30,8 @@ func runGitCmd(ctx context.Context, acceptNewHosts bool, args ...string) ([]byte
 
 	var sshCommand string
 	if existingSSH := os.Getenv("GIT_SSH_COMMAND"); existingSSH != "" {
-		// Preserve user's SSH config; repoman's options appended (last-wins for duplicates).
-		// Inherits Git's trust model for environment variables.
+		// Append our options to user's command; our options win for duplicates (last-wins)
+		// This preserves user's SSH config while ensuring our security settings take precedence
 		sshCommand = existingSSH + " " + sshOptions
 	} else {
 		sshCommand = "ssh " + sshOptions
@@ -61,17 +61,10 @@ func Sync(url, path string, useHTTP bool) error {
 // It uses the SSH URL by default unless useHTTP is true.
 // Uses the provided context for timeout/cancellation control.
 func SyncCtx(ctx context.Context, url, path string, useHTTP bool) error {
-	if useHTTP {
-		url = ToHTTP(url)
-	} else {
-		url = ToSSH(url)
-	}
-
 	if info, err := os.Stat(path); err == nil {
 		if !info.IsDir() {
 			return fmt.Errorf("path %s exists but is not a directory", path)
 		}
-		// Check if it is a git repo
 		if _, err := os.Stat(fmt.Sprintf("%s/.git", path)); err != nil {
 			return fmt.Errorf("path %s exists but is not a git repository", path)
 		}
@@ -180,9 +173,10 @@ func Pull(path string) error {
 func PullCtx(ctx context.Context, path string) error {
 	output, err := runGitCmd(ctx, false, "-C", path, "pull")
 	if err != nil {
-		// Check if it's an empty repository
-		if count, countErr := GetCommitCountCtx(ctx, path); countErr == nil && count == 0 {
-			return fmt.Errorf("repository is empty")
+		// Check if the error is due to an empty repository
+		count, countErr := GetCommitCountCtx(ctx, path)
+		if countErr == nil && count == 0 {
+			return nil
 		}
 		return wrapGitError(err, output, "git pull")
 	}

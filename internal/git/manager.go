@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -86,16 +87,21 @@ func (m *Manager) StatusAllCtx(ctx context.Context, repos []RepoInfo, fetch bool
 func fetchStatusWithCtx(ctx context.Context, r RepoInfo, fetch bool) RepoStatus {
 	status := RepoStatus{Name: r.Name}
 
-	if _, err := os.Stat(r.Path); os.IsNotExist(err) {
-		status.Status = StatusMissing
+	if _, err := os.Stat(r.Path); err != nil {
+		if os.IsNotExist(err) {
+			status.Status = StatusMissing
+		} else {
+			status.Status = StatusError
+			status.Error = fmt.Errorf("failed to access path: %w", err)
+		}
 		return status
 	}
 
 	var fetchErr error
 	if fetch {
 		fetchCtx, fetchCancel := context.WithTimeout(ctx, defaultPullTimeout)
-		defer fetchCancel()
 		fetchErr = FetchCtx(fetchCtx, r.Path)
+		fetchCancel()
 	}
 
 	branch, repoSummary, err := GetStatusCtx(ctx, r.Path)
@@ -103,9 +109,9 @@ func fetchStatusWithCtx(ctx context.Context, r RepoInfo, fetch bool) RepoStatus 
 	if err != nil {
 		status.Status = StatusError
 		status.Error = err
-	} else {
-		status.Status = repoSummary
+		return status
 	}
+	status.Status = repoSummary
 
 	syncState, syncErr := GetSyncStateCtx(ctx, r.Path)
 	if syncErr != nil {
@@ -115,7 +121,13 @@ func fetchStatusWithCtx(ctx context.Context, r RepoInfo, fetch bool) RepoStatus 
 		}
 	} else {
 		status.SyncState = syncState
-		if fetchErr != nil {
+	}
+
+	if fetchErr != nil {
+		if status.Error == nil {
+			status.Error = fetchErr
+		}
+		if status.SyncState != StateUnknown {
 			status.SyncState += " (" + StateStale + ")"
 		}
 	}
