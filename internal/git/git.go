@@ -19,7 +19,7 @@ import (
 // shell interpretation, preventing shell injection attacks. GIT_SSH_COMMAND inherits
 // Git's trust model—the environment must be trusted, as with any Git operation.
 func runGitCmd(ctx context.Context, acceptNewHosts bool, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd := exec.CommandContext(ctx, "git", args...)  //#nosec G204
 
 	strictHostKeyChecking := "yes"
 	if acceptNewHosts {

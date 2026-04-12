@@ -196,7 +196,7 @@ func (cfg *Config) Save() (*SaveResult, error) {
 			return nil, err
 		}
 
-		data, err := json.MarshalIndent(saveCfg, "", "  ")
+		data, err := json.MarshalIndent(saveCfg, "", "  ")  //#nosec G117
 		if err != nil {
 			return nil, fmt.Errorf("could not marshal config: %w", err)
 		}
