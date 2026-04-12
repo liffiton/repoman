@@ -14,6 +14,10 @@ import (
 // runGitCmd executes a git command with the given arguments.
 // It enforces non-interactive behavior and strict host key checking.
 // The acceptNewHosts flag controls whether new host keys are accepted automatically.
+//
+// Security: Uses exec.CommandContext which passes arguments directly to git without
+// shell interpretation, preventing shell injection attacks. GIT_SSH_COMMAND inherits
+// Git's trust model—the environment must be trusted, as with any Git operation.
 func runGitCmd(ctx context.Context, acceptNewHosts bool, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, "git", args...)
 
@@ -26,6 +30,8 @@ func runGitCmd(ctx context.Context, acceptNewHosts bool, args ...string) ([]byte
 
 	var sshCommand string
 	if existingSSH := os.Getenv("GIT_SSH_COMMAND"); existingSSH != "" {
+		// Preserve user's SSH config; repoman's options appended (last-wins for duplicates).
+		// Inherits Git's trust model for environment variables.
 		sshCommand = existingSSH + " " + sshOptions
 	} else {
 		sshCommand = "ssh " + sshOptions
@@ -184,11 +190,12 @@ func PullCtx(ctx context.Context, path string) error {
 }
 
 func validateURL(url string) error {
-	// Basic validation to prevent command injection
+	// Defensive validation. Shell injection is not possible due to exec.CommandContext,
+	// but this prevents obvious misuse (spaces, option injection via leading "-").
+	// Known limitations: does not block file:// protocol or other git protocols.
 	if strings.Contains(url, " ") || strings.HasPrefix(url, "-") {
 		return fmt.Errorf("invalid git URL: %s", url)
 	}
-	// We could add more robust validation here if needed
 	return nil
 }
 
