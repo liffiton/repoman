@@ -52,11 +52,11 @@ var statusCmd = &cobra.Command{
 		fmt.Println() // New line after progress bar
 
 		results := make([][]string, len(repoStatuses)+1)
-		results[0] = []string{"STUDENT/REPO", "BRANCH", "LAST COMMIT", "LOCAL STATUS", "SYNC STATE"}
+		results[0] = []string{"STUDENT/REPO", "BRANCH", "COMMITS", "LAST COMMIT", "LOCAL STATUS", "SYNC STATE"}
 
 		for i, s := range repoStatuses {
 			if s.Error != nil {
-				results[i+1] = []string{s.Name, "ERROR", "-", pterm.Red(s.Error.Error()), "-"}
+				results[i+1] = []string{s.Name, "ERROR", "-", "-", pterm.Red(s.Error.Error()), "-"}
 				continue
 			}
 
@@ -68,6 +68,7 @@ var statusCmd = &cobra.Command{
 			results[i+1] = []string{
 				s.Name,
 				branch,
+				fmt.Sprintf("%d", s.CommitCount),
 				formatCommitTime(s.LastCommit),
 				colorStatus(s.Status),
 				colorSyncState(s.SyncState),

@@ -18,12 +18,13 @@ type RepoInfo struct {
 
 // RepoStatus contains the status of a repository.
 type RepoStatus struct {
-	Error      error
-	LastCommit time.Time
-	Name       string
-	Branch     string
-	Status     string
-	SyncState  string
+	Error       error
+	LastCommit  time.Time
+	Name        string
+	Branch      string
+	Status      string
+	SyncState   string
+	CommitCount int
 }
 
 const (
@@ -134,6 +135,12 @@ func fetchStatusWithCtx(ctx context.Context, r RepoInfo, fetch bool) RepoStatus 
 
 	lastCommit, err := GetLastCommitTimeCtx(ctx, r.Path)
 	status.LastCommit = lastCommit
+	if err != nil && status.Error == nil {
+		status.Error = err
+	}
+
+	commitCount, err := GetCommitCountCtx(ctx, r.Path)
+	status.CommitCount = commitCount
 	if err != nil && status.Error == nil {
 		status.Error = err
 	}
