@@ -4,8 +4,11 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"strings"
+	"time"
 
 	"github.com/liffiton/repoman/internal/git"
 )
@@ -30,23 +33,34 @@ type Repo struct {
 
 // Client is a client for the Repoman web application.
 type Client struct {
-	baseURL string
-	apiKey  string
+	httpClient *http.Client
+	baseURL    *url.URL
+	apiKey     string
 }
 
 // NewClient creates a new API client.
-func NewClient(baseURL, apiKey string) *Client {
-	// Ensure baseURL doesn't end with a slash for consistent path joining
-	baseURL = strings.TrimSuffix(baseURL, "/")
-	return &Client{
-		baseURL: baseURL,
-		apiKey:  apiKey,
+func NewClient(baseURLStr, apiKey string) (*Client, error) {
+	u, err := url.Parse(baseURLStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid base URL: %w", err)
 	}
+
+	return &Client{
+		baseURL: u,
+		apiKey:  apiKey,
+		httpClient: &http.Client{
+			Timeout: 10 * time.Second,
+		},
+	}, nil
 }
 
 func (c *Client) doRequest(method, path string) (*http.Response, error) {
-	url := fmt.Sprintf("%s/api/v1%s", c.baseURL, path)
-	req, err := http.NewRequest(method, url, http.NoBody)
+	u, err := url.JoinPath(c.baseURL.String(), "api", "v1", path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to construct URL: %w", err)
+	}
+
+	req, err := http.NewRequest(method, u, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -55,7 +69,7 @@ func (c *Client) doRequest(method, path string) (*http.Response, error) {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -66,7 +80,14 @@ func (c *Client) doRequest(method, path string) (*http.Response, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		// Read a snippet of the error body for more context
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		_ = resp.Body.Close()
+
+		errMsg := strings.TrimSpace(string(body))
+		if errMsg != "" {
+			return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, errMsg)
+		}
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 

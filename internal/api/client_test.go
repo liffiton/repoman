@@ -21,7 +21,10 @@ func TestGetCourses(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-key")
+	client, err := NewClient(server.URL, "test-key")
+	if err != nil {
+		t.Fatalf("NewClient failed: %v", err)
+	}
 	courses, err := client.GetCourses()
 	if err != nil {
 		t.Fatalf("GetCourses failed: %v", err)
@@ -45,7 +48,10 @@ func TestGetAssignments(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-key")
+	client, err := NewClient(server.URL, "test-key")
+	if err != nil {
+		t.Fatalf("NewClient failed: %v", err)
+	}
 	assignments, err := client.GetAssignments("cs101")
 	if err != nil {
 		t.Fatalf("GetAssignments failed: %v", err)
@@ -71,7 +77,10 @@ func TestGetAssignmentRepos(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "test-key")
+	client, err := NewClient(server.URL, "test-key")
+	if err != nil {
+		t.Fatalf("NewClient failed: %v", err)
+	}
 	repos, err := client.GetAssignmentRepos("lab1")
 	if err != nil {
 		t.Fatalf("GetAssignmentRepos failed: %v", err)

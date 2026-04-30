@@ -43,7 +43,10 @@ var initCmd = &cobra.Command{
 			}
 		}
 
-		client := api.NewClient(cfg.GetBaseURL(), cfg.APIKey)
+		client, err := api.NewClient(cfg.GetBaseURL(), cfg.APIKey)
+		if err != nil {
+			return err
+		}
 
 		// 1. Select Course
 		courses, err := client.GetCourses()

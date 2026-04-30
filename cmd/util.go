@@ -48,7 +48,10 @@ func loadWorkspaceContext() (*workspaceContext, error) {
 		return nil, fmt.Errorf("failed to change to workspace root: %w", err)
 	}
 
-	client := api.NewClient(cfg.GetBaseURL(), cfg.APIKey)
+	client, err := api.NewClient(cfg.GetBaseURL(), cfg.APIKey)
+	if err != nil {
+		return nil, err
+	}
 	repos, err := client.GetAssignmentRepos(wcfg.AssignmentID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch repositories: %w", err)
