@@ -19,7 +19,7 @@ Repoman uses standard Go toolchain commands for quality assurance.
 - **Run all tests:** `go test ./...`
 - **Run tests with coverage:** `go test -cover ./...`
 - **Run a single test:** `go test -v -run ^TestName$ ./path/to/package`
-  - *Example:* `go test -v -run ^TestCloneRepo$ ./internal/git`
+  - *Example:* `go test -v -run ^TestSync$ ./internal/git`
 - **Run tests in a specific file:** `go test -v ./path/to/package/file_test.go`
 
 ### Build
@@ -37,7 +37,9 @@ Repoman uses standard Go toolchain commands for quality assurance.
 ## 2. Code Style Guidelines
 
 ### Error Handling
-- Wrap errors with context using `fmt.Errorf("context: %w", err)`.
+- Use `errors.New` for static error messages with no formatting.
+- Use `fmt.Errorf` for formatted errors, including `fmt.Errorf("context: %w", err)` to wrap errors with additional context.
+- **When to wrap:** Wrap at public function boundaries to identify which operation failed (e.g., `"failed to fetch courses: %w"`). Don't wrap when passing through immediately, when the underlying message is already clear (e.g., `os.Open` includes the filename), or at every level — redundant chains like `"failed to X: failed to Y: failed to Z: %w"` add noise.
 
 ### Security
 - **API Keys:** Never hardcode secrets. Use the OS-native keyring via `github.com/zalando/go-keyring` for secure storage. Fallback to a config file with `0600` permissions in the user's config directory (`os.UserConfigDir()`).
@@ -49,20 +51,21 @@ Repoman uses standard Go toolchain commands for quality assurance.
 
 ### Components
 - `main.go`: Root entry point that calls `cmd.Execute()`.
-- `cmd/`: CLI command implementations using `cobra`. Root command is in `root.go`, and subcommands have their own files.
+- `cmd/`: CLI command implementations using `cobra`. Root command is in `root.go`; subcommands include `init.go`, `auth.go`, `sync.go`, `status.go`, and `update.go`. Shared utilities are in `util.go`.
 - `internal/api`: Client logic for the web application interface (`client.go`).
 - `internal/git`: Wrappers for git operations (`git.go`) and concurrent management (`manager.go`).
 - `internal/config`: Configuration management (`config.go`) for user settings and workspace state.
 - `internal/update`: Self-update logic using GitHub Releases.
+- `internal/ui`: Terminal UI helpers using `pterm` for progress bars, styled text, and interactive prompts.
 
 ### Key Files & Responsibilities
-- `cmd/root.go`: Root command and global flag definitions.
+- `cmd/root.go`: Root command definition. (No root-level global flags are defined; flags are scoped to individual subcommands.)
 - `cmd/sync.go`: Implementation of the `sync` command, uses `internal/git` to clone/pull repos.
 - `cmd/status.go`: Implementation of the `status` command, checks local repo states.
-- `internal/api/client.go`: Defines the `Repo` struct which contains the default `URL` from the API.
-- `internal/git/git.go`: contains `Sync`, `Clone`, and `Pull` functions.
-- `internal/git/manager.go`: defines `RepoInfo` and the `Manager` for parallel execution.
-- `internal/config/config.go`: Handles `~/.config/repoman/config.json` and local `.repoman.json`.
+- `internal/api/client.go`: Defines the `Repo` struct (`Name`, `URL`), `Course` struct (`ID`, `Name`), `Assignment` struct (`ID`, `Name`), and the `Client` for API communication.
+- `internal/git/git.go`: Contains git operation wrappers including `Sync`, `Clone`, `Pull`, `Fetch`, `GetStatus`, `GetBranch`, `GetCommitCount`, `GetSyncState`, `GetLastCommitTime`, and URL utilities `ToSSH`, `ToHTTP`, and `ExtractRepoName`. All git operations also have `*Ctx` variants for context-aware cancellation.
+- `internal/git/manager.go`: Defines `RepoInfo` (`Name`, `URL`, `Path`, `UseHTTP`), `RepoStatus` (`Name`, `Status`, `Error`, `Branch`, `CommitCount`, `SyncState`, `LastCommitTime`), the `Manager` for parallel execution, and status constants: `StatusMissing`, `StatusError`, `StateUnknown`, `StateStale`, `StateSynced`.
+- `internal/config/config.go`: Handles the user config file via `os.UserConfigDir()` (e.g., `~/.config/repoman/config.json` on Linux) and local `.repoman.json`.
 
 ### Self-Update Strategy
 - Releases should be hosted on **GitHub Releases**.
@@ -70,7 +73,7 @@ Repoman uses standard Go toolchain commands for quality assurance.
 - Use a library like `github.com/minio/selfupdate` to handle the binary replacement safely.
 
 ### Git Operations
-- Use `git` commands via `os/exec` for maximum compatibility and performance, or a library like `go-git` if deep inspection is needed.
+- Use `git` commands via `os/exec` for maximum compatibility and performance.  If deeper inspection is needed, ask about potentially adding a library like `go-git`.
 - Efficiently update repos by using goroutines for concurrent pulls/clones, but limit concurrency to avoid overwhelming the system.
 
 ## 4. Documentation
