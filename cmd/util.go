@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -11,7 +12,7 @@ import (
 // requireAuth ensures the user is authenticated.
 func requireAuth() error {
 	if cfg.APIKey == "" {
-		return fmt.Errorf("not authenticated. Run 'repoman auth' first")
+		return errors.New("not authenticated. Run 'repoman auth' first")
 	}
 	return nil
 }
@@ -34,7 +35,7 @@ func loadWorkspaceContext() (*workspaceContext, error) {
 	wcfg, err := config.LoadWorkspace()
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("no workspace found. Run 'repoman init' first")
+			return nil, errors.New("no workspace found. Run 'repoman init' first")
 		}
 		return nil, fmt.Errorf("failed to load workspace: %w", err)
 	}

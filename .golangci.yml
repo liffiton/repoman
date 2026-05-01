@@ -10,9 +10,11 @@ linters:
   enable:
     - bodyclose
     - gocritic
+    - gocyclo
     - gosec
     - misspell
     - revive
+    - unconvert
     - unparam
 
   settings:
@@ -33,9 +35,17 @@ linters:
     revive:
       # revive is a successor of golint
       rules:
+        - name: empty-lines
+          severity: warning
+        - name: error-naming
+          severity: warning
         - name: exported
           severity: warning
+        - name: indent-error-flow
+          severity: warning
         - name: package-comments
+          severity: warning
+        - name: superfluous-else
           severity: warning
 
   exclusions:

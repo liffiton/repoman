@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -65,7 +66,7 @@ func SyncCtx(ctx context.Context, url, path string, useHTTP bool) error {
 		if !info.IsDir() {
 			return fmt.Errorf("path %s exists but is not a directory", path)
 		}
-		if _, err := os.Stat(fmt.Sprintf("%s/.git", path)); err != nil {
+		if _, err := os.Stat(filepath.Join(path, ".git")); err != nil {
 			return fmt.Errorf("path %s exists but is not a git repository", path)
 		}
 		return PullCtx(ctx, path)

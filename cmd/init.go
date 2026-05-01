@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -55,7 +56,7 @@ var initCmd = &cobra.Command{
 		}
 
 		if len(courses) == 0 {
-			return fmt.Errorf("no courses found")
+			return errors.New("no courses found")
 		}
 
 		var courseOptions []string
@@ -83,7 +84,7 @@ var initCmd = &cobra.Command{
 		}
 
 		if len(assignments) == 0 {
-			return fmt.Errorf("no assignments found for this course")
+			return errors.New("no assignments found for this course")
 		}
 
 		var assignmentOptions []string

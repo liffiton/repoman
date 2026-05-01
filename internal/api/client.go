@@ -3,6 +3,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -76,7 +77,7 @@ func (c *Client) doRequest(method, path string) (*http.Response, error) {
 
 	if resp.StatusCode == http.StatusUnauthorized {
 		_ = resp.Body.Close()
-		return nil, fmt.Errorf("unauthorized: invalid API key")
+		return nil, errors.New("unauthorized: invalid API key")
 	}
 
 	if resp.StatusCode != http.StatusOK {

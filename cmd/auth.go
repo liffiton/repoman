@@ -2,6 +2,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -33,7 +34,7 @@ var authCmd = &cobra.Command{
 		apiKey = strings.TrimSpace(apiKey)
 
 		if apiKey == "" {
-			return fmt.Errorf("API key cannot be empty")
+			return errors.New("API key cannot be empty")
 		}
 
 		baseURL, err := pterm.DefaultInteractiveTextInput.
