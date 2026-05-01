@@ -69,6 +69,7 @@ var initCmd = &cobra.Command{
 		selectedCourseOption, err := pterm.DefaultInteractiveSelect.
 			WithDefaultText("Select a course").
 			WithOptions(courseOptions).
+			WithMaxHeight(15).
 			Show()
 		if err != nil {
 			return err
@@ -96,6 +97,7 @@ var initCmd = &cobra.Command{
 		selectedAssignmentOption, err := pterm.DefaultInteractiveSelect.
 			WithDefaultText("Select an assignment").
 			WithOptions(assignmentOptions).
+			WithMaxHeight(15).
 			Show()
 		if err != nil {
 			return err
