@@ -19,7 +19,6 @@ func requireAuth() error {
 
 // workspaceContext holds the context for a workspace-related command.
 type workspaceContext struct {
-	Client  *api.Client
 	Wcfg    *config.WorkspaceConfig
 	OrigDir string
 	Repos   []api.Repo
@@ -59,7 +58,6 @@ func loadWorkspaceContext() (*workspaceContext, error) {
 	}
 
 	return &workspaceContext{
-		Client:  client,
 		Wcfg:    wcfg,
 		Repos:   repos,
 		OrigDir: origDir,
