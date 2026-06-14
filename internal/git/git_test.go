@@ -123,26 +123,6 @@ func TestURLConversion(t *testing.T) {
 	}
 }
 
-func TestExtractRepoName(t *testing.T) {
-	tests := []struct {
-		url  string
-		want string
-	}{
-		{"https://github.com/user/repo", "repo"},
-		{"https://github.com/user/repo.git", "repo"},
-		{"git@github.com:user/repo.git", "repo"},
-		{"git@github.com:repo.git", "repo"},
-		{"ssh://git@github.com/user/repo.git", "repo"},
-		{"https://github.com/user/repo/", "repo"},
-	}
-
-	for _, tt := range tests {
-		if got := ExtractRepoName(tt.url); got != tt.want {
-			t.Errorf("ExtractRepoName(%q) = %q, want %q", tt.url, got, tt.want)
-		}
-	}
-}
-
 func TestGetLastCommitTime(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "repoman-git-lastcommit-test-*")
 	if err != nil {

@@ -10,8 +10,6 @@ import (
 	"net/url"
 	"strings"
 	"time"
-
-	"github.com/liffiton/repoman/internal/git"
 )
 
 // Course represents a course in the web application.
@@ -143,9 +141,22 @@ func (c *Client) GetAssignmentRepos(assignmentID string) ([]Repo, error) {
 	// Post-process to ensure names are populated
 	for i := range repos {
 		if repos[i].Name == "" || repos[i].Name == "unknown" {
-			repos[i].Name = git.ExtractRepoName(repos[i].URL)
+			repos[i].Name = extractRepoName(repos[i].URL)
 		}
 	}
 
 	return repos, nil
+}
+
+// extractRepoName extracts the repository name from a git URL.
+func extractRepoName(url string) string {
+	url = strings.TrimSuffix(url, ".git")
+	url = strings.TrimSuffix(url, "/")
+	if idx := strings.LastIndex(url, "/"); idx >= 0 {
+		url = url[idx+1:]
+	}
+	if idx := strings.LastIndex(url, ":"); idx >= 0 {
+		url = url[idx+1:]
+	}
+	return url
 }

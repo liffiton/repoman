@@ -100,3 +100,23 @@ func TestGetAssignmentRepos(t *testing.T) {
 		t.Errorf("expected unknown-repo, got %s", repos[2].Name)
 	}
 }
+
+func TestExtractRepoName(t *testing.T) {
+	tests := []struct {
+		url  string
+		want string
+	}{
+		{"https://github.com/user/repo", "repo"},
+		{"https://github.com/user/repo.git", "repo"},
+		{"git@github.com:user/repo.git", "repo"},
+		{"git@github.com:repo.git", "repo"},
+		{"ssh://git@github.com/user/repo.git", "repo"},
+		{"https://github.com/user/repo/", "repo"},
+	}
+
+	for _, tt := range tests {
+		if got := extractRepoName(tt.url); got != tt.want {
+			t.Errorf("extractRepoName(%q) = %q, want %q", tt.url, got, tt.want)
+		}
+	}
+}

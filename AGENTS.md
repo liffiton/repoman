@@ -62,8 +62,8 @@ Repoman uses standard Go toolchain commands for quality assurance.
 - `cmd/root.go`: Root command definition. (No root-level global flags are defined; flags are scoped to individual subcommands.)
 - `cmd/sync.go`: Implementation of the `sync` command, uses `internal/git` to clone/pull repos.
 - `cmd/status.go`: Implementation of the `status` command, checks local repo states.
-- `internal/api/client.go`: Defines the `Repo` struct (`Name`, `URL`), `Course` struct (`ID`, `Name`), `Assignment` struct (`ID`, `Name`), and the `Client` for API communication.
-- `internal/git/git.go`: Contains git operation wrappers including `Sync`, `Clone`, `Pull`, `Fetch`, `GetStatus`, `GetBranch`, `GetCommitCount`, `GetSyncState`, `GetLastCommitTime`, and URL utilities `ToSSH`, `ToHTTP`, and `ExtractRepoName`. All git operations also have `*Ctx` variants for context-aware cancellation.
+- `internal/api/client.go`: Defines the `Repo` struct (`Name`, `URL`), `Course` struct (`ID`, `Name`), `Assignment` struct (`ID`, `Name`), the `Client` for API communication, and `extractRepoName` for URL name extraction.
+- `internal/git/git.go`: Contains git operation wrappers including `Sync`, `Clone`, `Pull`, `Fetch`, `GetStatus`, `GetBranch`, `GetCommitCount`, `GetSyncState`, `GetLastCommitTime`, and URL utilities `ToSSH` and `ToHTTP`. All git operations also have `*Ctx` variants for context-aware cancellation.
 - `internal/git/manager.go`: Defines `RepoInfo` (`Name`, `URL`, `Path`, `UseHTTP`), `RepoStatus` (`Name`, `Status`, `Error`, `Branch`, `CommitCount`, `SyncState`, `LastCommitTime`), the `Manager` for parallel execution, and status constants: `StatusMissing`, `StatusError`, `StateUnknown`, `StateStale`, `StateSynced`.
 - `internal/config/config.go`: Handles the user config file via `os.UserConfigDir()` (e.g., `~/.config/repoman/config.json` on Linux) and local `.repoman.json`.
 

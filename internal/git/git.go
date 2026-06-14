@@ -147,21 +147,6 @@ func ToHTTP(url string) string {
 	return url
 }
 
-// ExtractRepoName extracts the repository name from a git URL.
-func ExtractRepoName(url string) string {
-	url = strings.TrimSuffix(url, ".git")
-	url = strings.TrimSuffix(url, "/")
-	// Get last segment after "/"
-	if idx := strings.LastIndex(url, "/"); idx >= 0 {
-		url = url[idx+1:]
-	}
-	// Handle git@host:repo format
-	if idx := strings.LastIndex(url, ":"); idx >= 0 {
-		url = url[idx+1:]
-	}
-	return url
-}
-
 // Pull pulls changes in an existing repository.
 func Pull(path string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultPullTimeout)
