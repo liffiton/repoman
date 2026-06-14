@@ -149,14 +149,14 @@ func (c *Client) GetAssignmentRepos(assignmentID string) ([]Repo, error) {
 }
 
 // extractRepoName extracts the repository name from a git URL.
-func extractRepoName(url string) string {
-	url = strings.TrimSuffix(url, ".git")
-	url = strings.TrimSuffix(url, "/")
-	if idx := strings.LastIndex(url, "/"); idx >= 0 {
-		url = url[idx+1:]
+func extractRepoName(repoURL string) string {
+	repoURL = strings.TrimSuffix(repoURL, ".git")
+	repoURL = strings.TrimSuffix(repoURL, "/")
+	if idx := strings.LastIndex(repoURL, "/"); idx >= 0 {
+		repoURL = repoURL[idx+1:]
 	}
-	if idx := strings.LastIndex(url, ":"); idx >= 0 {
-		url = url[idx+1:]
+	if idx := strings.LastIndex(repoURL, ":"); idx >= 0 {
+		repoURL = repoURL[idx+1:]
 	}
-	return url
+	return repoURL
 }
