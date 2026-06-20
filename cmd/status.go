@@ -3,6 +3,8 @@ package cmd
 
 import (
 	"fmt"
+	"math"
+	"sort"
 	"strings"
 	"time"
 
@@ -49,26 +51,52 @@ var statusCmd = &cobra.Command{
 			bar.Increment()
 		})
 
+		sort.Slice(repoStatuses, func(i, j int) bool {
+			iBad := repoStatuses[i].Status == git.StatusMissing || repoStatuses[i].Status == git.StatusError || repoStatuses[i].Error != nil
+			jBad := repoStatuses[j].Status == git.StatusMissing || repoStatuses[j].Status == git.StatusError || repoStatuses[j].Error != nil
+			if iBad != jBad {
+				return !iBad
+			}
+			return repoStatuses[i].Name < repoStatuses[j].Name
+		})
+
 		fmt.Println() // New line after progress bar
+
+		maxCommits := 0
+		for _, s := range repoStatuses {
+			maxCommits = max(maxCommits, s.CommitCount)
+		}
 
 		results := make([][]string, len(repoStatuses)+1)
 		results[0] = []string{"STUDENT/REPO", "BRANCH", "COMMITS", "LAST COMMIT", "LOCAL STATUS", "SYNC STATE"}
 
 		for i, s := range repoStatuses {
 			if s.Error != nil {
-				results[i+1] = []string{s.Name, "ERROR", "-", "-", pterm.Red(s.Error.Error()), "-"}
+				results[i+1] = []string{
+					s.Name,
+					"ERROR",
+					dimPlaceholder(7),
+					dimPlaceholder(),
+					pterm.Red(s.Error.Error()),
+					dimPlaceholder(),
+				}
 				continue
+			}
+
+			commits := formatCommitCount(s.CommitCount, maxCommits)
+			if s.Status == git.StatusMissing {
+				commits = dimPlaceholder(7)
 			}
 
 			branch := s.Branch
 			if branch == "" {
-				branch = "-"
+				branch = dimPlaceholder()
 			}
 
 			results[i+1] = []string{
 				s.Name,
 				branch,
-				fmt.Sprintf("%d", s.CommitCount),
+				commits,
 				formatCommitTime(s.LastCommit),
 				colorStatus(s.Status),
 				colorSyncState(s.SyncState),
@@ -79,6 +107,14 @@ var statusCmd = &cobra.Command{
 
 		return nil
 	},
+}
+
+func dimPlaceholder(width ...int) string {
+	dash := "-"
+	if len(width) > 0 {
+		dash = fmt.Sprintf("%*s", width[0], "-")
+	}
+	return pterm.NewRGB(105, 105, 105).Sprintf("%s", dash)
 }
 
 func colorStatus(status string) string {
@@ -98,9 +134,6 @@ func colorStatus(status string) string {
 }
 
 func colorSyncState(state string) string {
-	if state == "" {
-		return "-"
-	}
 	if state == "Synced" {
 		return pterm.Green(state)
 	}
@@ -119,12 +152,29 @@ func colorSyncState(state string) string {
 	if strings.HasPrefix(state, "Diverged") {
 		return pterm.Magenta(state)
 	}
+	if state == "" || state == "-" {
+		return dimPlaceholder()
+	}
 	return state
+}
+
+func formatCommitCount(count, maxCommits int) string {
+	// right align ...
+	formatted := fmt.Sprintf("%7d", count)
+	// ... and color based on # commits compared to max (few commits: darkish orange)
+	if count == 0 {
+		return pterm.NewRGB(230, 80, 80).Sprintf("%s", formatted)
+	}
+	t := math.Log(float64(count)+0.1) / math.Log(float64(maxCommits)+0.1)
+	r := uint8(math.Round(250 + (220-250)*t))
+	g := uint8(math.Round(100 + (240-100)*t))
+	b := uint8(math.Round(0 + (240-0)*t))
+	return pterm.NewRGB(r, g, b).Sprintf("%s", formatted)
 }
 
 func formatCommitTime(t time.Time) string {
 	if t.IsZero() {
-		return "-"
+		return dimPlaceholder()
 	}
 	local := t.Local()
 	now := time.Now().Local()
