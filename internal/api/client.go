@@ -14,8 +14,10 @@ import (
 
 // Course represents a course in the web application.
 type Course struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ArchivedAt *time.Time `json:"archived_at"`
+	ID         string     `json:"id"`
+	Name       string     `json:"name"`
+	Archived   bool       `json:"archived"`
 }
 
 // Assignment represents an assignment in a course.
@@ -79,10 +81,19 @@ func (c *Client) doRequest(method, path string) (*http.Response, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		// Read a snippet of the error body for more context
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		_ = resp.Body.Close()
 
+		// The API returns structured JSON errors: {"error": "...", "message": "..."}.
+		var apiErr struct {
+			Error   string `json:"error"`
+			Message string `json:"message"`
+		}
+		if json.Unmarshal(body, &apiErr) == nil && apiErr.Message != "" {
+			return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, apiErr.Message)
+		}
+
+		// Fall back to a snippet of the raw body for non-JSON error responses
 		errMsg := strings.TrimSpace(string(body))
 		if errMsg != "" {
 			return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, errMsg)

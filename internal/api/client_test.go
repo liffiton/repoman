@@ -4,20 +4,23 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestGetCourses(t *testing.T) {
-	expectedCourses := []Course{
-		{ID: "cs101", Name: "Intro to CS"},
-	}
+	const body = `[
+		{"id": "cs101", "name": "Intro to CS", "archived": false, "archived_at": null},
+		{"id": "cs102", "name": "Algorithms", "archived": true, "archived_at": "2026-01-05T12:30:00Z"}
+	]`
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/v1/courses" {
 			t.Errorf("expected path /api/v1/courses, got %s", r.URL.Path)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(expectedCourses)
+		_, _ = w.Write([]byte(body))
 	}))
 	defer server.Close()
 
@@ -29,8 +32,23 @@ func TestGetCourses(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetCourses failed: %v", err)
 	}
-	if len(courses) != 1 || courses[0].ID != "cs101" {
-		t.Errorf("unexpected courses: %+v", courses)
+	if len(courses) != 2 {
+		t.Fatalf("expected 2 courses, got %d: %+v", len(courses), courses)
+	}
+
+	if courses[0].ID != "cs101" || courses[0].Name != "Intro to CS" {
+		t.Errorf("unexpected first course: %+v", courses[0])
+	}
+	if courses[0].Archived || courses[0].ArchivedAt != nil {
+		t.Errorf("expected first course to be active, got %+v", courses[0])
+	}
+
+	if !courses[1].Archived || courses[1].ArchivedAt == nil {
+		t.Fatalf("expected second course to be archived with a timestamp, got %+v", courses[1])
+	}
+	want := time.Date(2026, 1, 5, 12, 30, 0, 0, time.UTC)
+	if !courses[1].ArchivedAt.Equal(want) {
+		t.Errorf("expected archived_at %s, got %s", want, *courses[1].ArchivedAt)
 	}
 }
 
@@ -98,6 +116,47 @@ func TestGetAssignmentRepos(t *testing.T) {
 	}
 	if repos[2].Name != "unknown-repo" {
 		t.Errorf("expected unknown-repo, got %s", repos[2].Name)
+	}
+}
+
+func TestErrorJSONResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error": "Not Found", "message": "Course not found"}`))
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "test-key")
+	if err != nil {
+		t.Fatalf("NewClient failed: %v", err)
+	}
+	_, err = client.GetCourses()
+	if err == nil {
+		t.Fatal("expected an error, got nil")
+	}
+	if !strings.Contains(err.Error(), "404") || !strings.Contains(err.Error(), "Course not found") {
+		t.Errorf("expected error to mention status and message, got: %v", err)
+	}
+}
+
+func TestErrorNonJSONResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`internal server error`))
+	}))
+	defer server.Close()
+
+	client, err := NewClient(server.URL, "test-key")
+	if err != nil {
+		t.Fatalf("NewClient failed: %v", err)
+	}
+	_, err = client.GetCourses()
+	if err == nil {
+		t.Fatal("expected an error, got nil")
+	}
+	if !strings.Contains(err.Error(), "500") || !strings.Contains(err.Error(), "internal server error") {
+		t.Errorf("expected error to mention status and raw body, got: %v", err)
 	}
 }
 

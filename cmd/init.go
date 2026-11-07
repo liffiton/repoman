@@ -59,12 +59,21 @@ var initCmd = &cobra.Command{
 			return errors.New("no courses found")
 		}
 
+		// List active courses first, then archived ones, marked as such.
 		var courseOptions []string
 		courseMap := make(map[string]api.Course)
-		for _, c := range courses {
-			option := c.Name
-			courseOptions = append(courseOptions, option)
-			courseMap[option] = c
+		for _, archived := range []bool{false, true} {
+			for _, c := range courses {
+				if c.Archived != archived {
+					continue
+				}
+				option := c.Name
+				if archived {
+					option += " (archived)"
+				}
+				courseOptions = append(courseOptions, option)
+				courseMap[option] = c
+			}
 		}
 
 		selectedCourseOption, err := pterm.DefaultInteractiveSelect.
