@@ -14,10 +14,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var noFetch bool
+const (
+	sortByName = "name"
+	sortByDate = "date"
+)
+
+var (
+	noFetch    bool
+	statusSort string
+)
 
 func init() {
 	statusCmd.Flags().BoolVarP(&noFetch, "no-fetch", "n", false, "Do not fetch from remote")
+	statusCmd.Flags().StringVarP(&statusSort, "sort", "s", sortByName, "Sort by \"name\" or \"date\" (oldest first)")
 	rootCmd.AddCommand(statusCmd)
 }
 
@@ -25,6 +34,10 @@ var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show status of all student repositories in the workspace",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := validateSortField(statusSort); err != nil {
+			return err
+		}
+
 		ctx, err := loadWorkspaceContext()
 		if err != nil {
 			return err
@@ -51,14 +64,7 @@ var statusCmd = &cobra.Command{
 			bar.Increment()
 		})
 
-		sort.Slice(repoStatuses, func(i, j int) bool {
-			iBad := repoStatuses[i].Status == git.StatusMissing || repoStatuses[i].Status == git.StatusError || repoStatuses[i].Error != nil
-			jBad := repoStatuses[j].Status == git.StatusMissing || repoStatuses[j].Status == git.StatusError || repoStatuses[j].Error != nil
-			if iBad != jBad {
-				return !iBad
-			}
-			return repoStatuses[i].Name < repoStatuses[j].Name
-		})
+		sortRepoStatuses(repoStatuses, statusSort)
 
 		fmt.Println() // New line after progress bar
 
@@ -107,6 +113,33 @@ var statusCmd = &cobra.Command{
 
 		return nil
 	},
+}
+
+func validateSortField(field string) error {
+	if field != sortByName && field != sortByDate {
+		return fmt.Errorf("invalid sort field %q: must be %q or %q", field, sortByName, sortByDate)
+	}
+	return nil
+}
+
+// sortRepoStatuses orders repositories by the requested field. Repositories that
+// are missing or failed to check are always placed at the bottom.
+func sortRepoStatuses(statuses []git.RepoStatus, sortBy string) {
+	sort.SliceStable(statuses, func(i, j int) bool {
+		iBad := isBadStatus(&statuses[i])
+		jBad := isBadStatus(&statuses[j])
+		if iBad != jBad {
+			return !iBad
+		}
+		if sortBy == sortByDate && !statuses[i].LastCommit.Equal(statuses[j].LastCommit) {
+			return statuses[i].LastCommit.Before(statuses[j].LastCommit)
+		}
+		return statuses[i].Name < statuses[j].Name
+	})
+}
+
+func isBadStatus(status *git.RepoStatus) bool {
+	return status.Status == git.StatusMissing || status.Status == git.StatusError || status.Error != nil
 }
 
 func dimPlaceholder(width ...int) string {

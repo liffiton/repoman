@@ -82,6 +82,14 @@ Soren              main     yesterday  13:55  Clean          Synced
 Yasmin             main     today      08:42  Clean          Synced
 ```
 
+By default the table is sorted alphabetically by repository name. Pass `--sort=date` to sort by each repository's latest commit time instead, oldest first:
+
+```bash
+repoman status --sort=date
+```
+
+Missing or errored repositories are always listed at the bottom.
+
 ### 5. Self-Update
 Update the `repoman` binary to the latest version:
 
